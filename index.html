@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101827"><meta name="description" content="Surebet Scanner – manuelle Fußball- und X1/X2-Tipps">
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg">
+<title>Surebet Scanner</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><div class="brand"><span class="ball">⚽</span><div><h1>Surebet Scanner</h1><small>Mobile · v1.0</small></div></div><div id="clock"></div></header>
+<main>
+<section class="hero"><div><p class="eyebrow">MANUELLER SUCHLAUF</p><h2>Deine heutigen Tipps</h2><p class="muted">Nur heutige, noch nicht gestartete Spiele · Europe/Vienna</p></div><button id="searchBtn">Jetzt suchen</button></section>
+<div id="status" class="status">Bereit. Starte eine Suche, wenn du möchtest.</div>
+<nav><button class="tab active" data-tab="main">Fußball 1X2 <b id="mainCount">0</b></button><button class="tab" data-tab="dc">X1 / X2 <b id="dcCount">0</b></button></nav>
+<section id="main" class="panel active"><div class="section-head"><h3>Fußballtipps</h3><span>max. 5 pro Suchlauf</span></div><div id="mainList" class="cards empty">Noch keine Suche durchgeführt.</div></section>
+<section id="dc" class="panel"><div class="section-head"><h3>Doppelte Chance</h3><span>max. 5 pro Suchlauf</span></div><div id="dcList" class="cards empty">Noch keine Suche durchgeführt.</div></section>
+<section class="footnote"><b>Filter:</b> mindestens 60 % · maximal 5 je Bereich · keine Wiederholung am selben Tag.<br><b>Hinweis:</b> Wahrscheinlichkeiten sind Modellwerte, keine Gewinnzusage. X1/X2 wird aus den 1X2-Werten abgeleitet und ist keine unabhängige Prognose.</section>
+<section class="diag"><details><summary>Datenquellen & Diagnose</summary><pre id="diagnostics">Noch kein Abruf.</pre></details></section>
+</main>
+<footer>Surebet Scanner Mobile · Bitte nur verantwortungsvoll wetten.</footer>
+<script src="app.js"></script>
+</body></html>
