@@ -1,4 +1,5 @@
 const API='https://tipsaudit.com/api/v1/predictions', SKOR='https://skorbot.live/api/v1/matches.json';
+const TENNIS_API='https://api.tipero.app/api/latest';
 const TZ='Europe/Vienna', MIN=60, MAX=7;
 const $=id=>document.getElementById(id);
 function nowVienna(){return new Date(new Date().toLocaleString('en-US',{timeZone:TZ}))}
@@ -13,10 +14,69 @@ if(Object.values(probs).every(Number.isFinite)){for(let [s,label,prob] of [['1X'
 diag.push(`TipsAudit: ${main.length} 1X2-Kandidaten, ${dc.length} X1/X2-Kandidaten`);return {main,dc}}
 async function skor(diag){let r=await fetch(SKOR,{headers:{Accept:'application/json'}});if(!r.ok)throw Error('Skorbot HTTP '+r.status);let p=await r.json(),a=p.matches||p||[],out=[];diag.push(`Skorbot: ${a.length} Rohspiele`);for(let m of a){if(!['scheduled','pending','not_started'].includes(String(m.status||'').toLowerCase()))continue;let k=m.kickoff||m.kickoff_utc||m.start_time;if(!isUpcoming(k))continue;let q=m.probabilities||m.prediction||{},p1=Number(q.home),px=Number(q.draw),p2=Number(q.away),sum=p1+px+p2;if(!(p1>=0&&px>=0&&p2>=0&&sum>0))continue;for(let [s,label,pb] of [['1X','Heim oder Unentschieden',(p1+px)/sum],['X2','Unentschieden oder Auswärts',(px+p2)/sum]])if(pb>=.6)out.push({home:m.home||m.home_team,away:m.away||m.away_team,league:m.competition||m.league||'Unbekannte Liga',kickoff:k,pick:s+' · '+label,prob:pb*100,source:'Skorbot'})}diag.push(`Skorbot: ${out.length} X1/X2-Kandidaten`);return out}
 function dedupe(arr){let out=[];for(let x of arr){let k=key(x);if(!out.some(y=>key(y)===k))out.push(x)}return out.sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)||b.prob-a.prob)}
-function render(id,arr,empty){let el=$(id);el.className='cards'+(arr.length?'':' empty');if(!arr.length){el.textContent=empty;return}el.innerHTML=arr.map(x=>`<article class="tip"><div class="tiptop"><span class="league">${esc(x.league)}</span><span>${fmt(x.kickoff)} Uhr</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="pickrow"><span class="pick">${esc(x.pick)}</span><span class="prob">${x.prob.toFixed(1)} %</span></div>${x.odds?`<div class="meta">Erfasste Quote: ${x.odds.toFixed(2)}</div>`:''}<span class="source">${esc(x.source)}</span></article>`).join('')}
+function tennisPicks(payload,diag){
+  const picks=Array.isArray(payload?.picks)?payload.picks:[];
+  const today=dateKey(new Date());
+  const out=[];
+  diag.push(`TIPERO: ${picks.length} veröffentlichte Tennispicks`);
+  for(const x of picks){
+    if(!x || x.source_type!=='public' || Number(x.is_locked)===1) continue;
+    if(String(x.match_date||'')!==today) continue;
+    const confidence=Number(x.confidence);
+    if(!Number.isFinite(confidence) || confidence<60) continue;
+    const home=String(x.player1||'').trim(), away=String(x.player2||'').trim();
+    if(!home || !away || !x.pick) continue;
+    const kickoff=x.start_time||x.kickoff||x.scheduled_at||x.startTime||null;
+    if(kickoff && !isUpcoming(kickoff)) continue;
+    out.push({home,away,league:[x.tour,x.tournament].filter(Boolean).join(' · ')||'Tennis',
+      kickoff,matchDate:x.match_date,pick:String(x.pick),prob:confidence,source:'TIPERO · öffentlich'});
+  }
+  const seen=new Set();
+  return out.sort((a,b)=>b.prob-a.prob).filter(x=>{
+    const k=[x.matchDate,teamKey(x.home),teamKey(x.away)].join('|');
+    if(seen.has(k)) return false; seen.add(k); return true;
+  }).slice(0,5);
+}
+async function fetchTennis(diag){
+  const r=await fetch(TENNIS_API,{headers:{Accept:'application/json'}});
+  if(!r.ok) throw Error('TIPERO HTTP '+r.status);
+  return tennisPicks(await r.json(),diag);
+}
+function render(id,arr,empty){let el=$(id);el.className='cards'+(arr.length?'':' empty');if(!arr.length){el.textContent=empty;return}el.innerHTML=arr.map(x=>`<article class="tip"><div class="tiptop"><span class="league">${esc(x.league)}</span><span>${x.kickoff?fmt(x.kickoff)+' Uhr':'Beginn nicht angegeben'}</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="pickrow"><span class="pick">${esc(x.pick)}</span><span class="prob">${x.prob.toFixed(1)} %</span></div>${x.odds?`<div class="meta">Erfasste Quote: ${x.odds.toFixed(2)}</div>`:''}<span class="source">${esc(x.source)}</span></article>`).join('')}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function eligible(arr){return dedupe(arr).filter(x=>isUpcoming(x.kickoff)).slice(0,MAX)}
-async function search(){let b=$('searchBtn');b.disabled=true;b.textContent='Suche läuft …';$('status').className='status';$('status').textContent='Datenquellen werden abgefragt …';let diag=[`Abruf: ${new Date().toLocaleString('de-AT',{timeZone:TZ})}`],main=[],dc=[];try{let r=await fetch(API,{headers:{Accept:'application/json'}});if(!r.ok)throw Error('TipsAudit HTTP '+r.status);let p=await r.json(),n=norm(p,diag);main=n.main;dc=n.dc;try{dc=dedupe([...await skor(diag),...dc])}catch(e){diag.push('Skorbot Fehler: '+e.message)}let fm=eligible(main),fd=eligible(dc);render('mainList',fm,'Keine passenden, noch nicht gestarteten Fußballtipps.');render('dcList',fd,'Keine passenden, noch nicht gestarteten X1/X2-Tipps.');$('mainCount').textContent=fm.length;$('dcCount').textContent=fd.length;$('status').textContent=`Suchlauf abgeschlossen: ${fm.length} Fußballtipps und ${fd.length} X1/X2-Tipps. Bereits angezeigte Spiele werden erneut berücksichtigt, solange der Anstoß noch bevorsteht.`;diag.push(`Aktuelle Tipps: 1X2 ${fm.length}/${MAX}; X1/X2 ${fd.length}/${MAX}`)}catch(e){$('status').className='status error';$('status').textContent='Abruf nicht möglich: '+e.message+'. Möglicherweise blockiert der Anbieter Browserzugriffe (CORS).';diag.push('FEHLER: '+e.message,'Wenn CORS blockiert, ist ein kleiner sicherer API-Proxy erforderlich.')}finally{$('diagnostics').textContent=diag.join('\n');b.disabled=false;b.textContent='Jetzt suchen'}}
+async function search(){
+ let b=$('searchBtn');b.disabled=true;b.textContent='Suche läuft …';$('status').className='status';$('status').textContent='Datenquellen werden abgefragt …';
+ let diag=[`Abruf: ${new Date().toLocaleString('de-AT',{timeZone:TZ})}`],main=[],dc=[],tennis=[];
+ try{
+  let r=await fetch(API,{headers:{Accept:'application/json'}});
+  if(!r.ok)throw Error('TipsAudit HTTP '+r.status);
+  let p=await r.json(),n=norm(p,diag);main=n.main;dc=n.dc;
+  try{dc=dedupe([...await skor(diag),...dc])}catch(e){diag.push('Skorbot Fehler: '+e.message)}
+  let fm=eligible(main),fd=eligible(dc);
+  render('mainList',fm,'Keine passenden, noch nicht gestarteten Fußballtipps.');
+  render('dcList',fd,'Keine passenden, noch nicht gestarteten X1/X2-Tipps.');
+  $('mainCount').textContent=fm.length;$('dcCount').textContent=fd.length;
+  diag.push(`Aktuelle Tipps: 1X2 ${fm.length}/${MAX}; X1/X2 ${fd.length}/${MAX}`);
+  try{
+    tennis=await fetchTennis(diag);
+    render('tennisList',tennis,'Keine öffentlichen Tennistipps mit mindestens 60 % Modellvertrauen für heute.');
+    $('tennisCount').textContent=tennis.length;
+    diag.push(`Tennis: ${tennis.length}/5 öffentliche Tipps mit mindestens 60 %`);
+    $('status').textContent=`Suchlauf abgeschlossen: ${fm.length} Fußballtipps, ${fd.length} X1/X2-Tipps und ${tennis.length} Tennistipps.`;
+  }catch(e){
+    render('tennisList',[],'Tennisdaten derzeit nicht abrufbar.');
+    $('tennisCount').textContent='0';
+    diag.push('TIPERO Fehler: '+e.message);
+    $('status').textContent=`Fußballsuche abgeschlossen: ${fm.length} Fußballtipps und ${fd.length} X1/X2-Tipps. Tennisdaten derzeit nicht abrufbar.`;
+  }
+ }catch(e){
+  $('status').className='status error';$('status').textContent='Fußball-Abruf nicht möglich: '+e.message+'. Tennis wird bei einem erfolgreichen Fußballabruf separat geladen.';
+  diag.push('FEHLER: '+e.message,'Wenn CORS blockiert, ist ein kleiner sicherer API-Proxy erforderlich.');
+ }finally{
+  $('diagnostics').textContent=diag.join('\\n');b.disabled=false;b.textContent='Jetzt suchen';
+ }
+}
 $('searchBtn').addEventListener('click',search);document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab,.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.tab).classList.add('active')}));
 function clock(){$('clock').textContent=new Intl.DateTimeFormat('de-AT',{timeZone:TZ,dateStyle:'short',timeStyle:'short'}).format(new Date())}clock();setInterval(clock,30000);
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
