@@ -1,4 +1,4 @@
-SUREBET SCANNER MOBILE v1.0
+SUREBET SCANNER MOBILE v1.0.2
 
 Dies ist eine installierbare Android-Web-App (PWA), noch keine native APK.
 
@@ -13,6 +13,6 @@ WICHTIG:
 - Browserzugriffe können durch CORS-Regeln der Anbieter blockiert sein. Die App zeigt dann den Fehler an. In diesem Fall braucht es einen kleinen HTTPS-Proxy/Backend, bevor die App zuverlässig nutzbar ist.
 - X1/X2-Werte werden aus 1X2-Modellwahrscheinlichkeiten abgeleitet, nicht unabhängig modelliert.
 - Verlauf der bereits gezeigten Spiele liegt lokal im Browser und wird pro österreichischem Kalendertag getrennt geführt.
-- Maximal 5 neue Tipps je Bereich und Suchlauf, Mindestwahrscheinlichkeit 60 %.
+- Maximal 7 Tipps je Bereich und Suchlauf, Mindestwahrscheinlichkeit 60 %.
 - Keine automatische Aktualisierung.
 - Keine Gewinnzusage. Bitte verantwortungsvoll wetten.
