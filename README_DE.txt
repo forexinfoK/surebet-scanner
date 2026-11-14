@@ -97,3 +97,12 @@ VERSION 1.2.8 – 1X2-VERARBEITUNG UND DIAGNOSE
 
 
 Version 1.2.8: Der Fußballbereich 1X2 zeigt zusätzlich zur aktuellen Value-Auswahl auch die wahrscheinlichste 1X2-Auswahl aus den fairen TipsAudit-Wahrscheinlichkeiten, sofern sie mindestens 60 % erreicht. Diese ergänzenden Auswahlen haben nicht zwingend eine bestätigte spielbare Quote und sind ausdrücklich keine Value-Signale. Quote und Verfügbarkeit vor dem Einsatz beim Wettanbieter prüfen. X1/X2 und Tennis unverändert.
+
+
+VERSION 1.3.0 – 1X2-SCHWELLE AUF 65 %
+- Ausschließlich die Mindestwahrscheinlichkeit für Fußball 1X2 wurde von 55 % auf 65 % gesenkt.
+- Die positive-EV-Prüfung für echte Value-Signale bleibt unverändert bestehen.
+- Wenn kein Value-Signal vorliegt, kann weiterhin die stärkste faire 1X2-Wahrscheinlichkeit als statistische Auswahl erscheinen, sofern sie mindestens 65 % erreicht. Diese Auswahl hat nicht zwingend eine bestätigte Quote und ist kein nachgewiesener Value-Tipp.
+- Maximal 7 Tipps je Suchlauf bleiben unverändert.
+- Fußball X1/X2 bleibt bei mindestens 60 %; Tennis und alle übrigen Datenquellen, Filter und Funktionen bleiben unverändert.
+- Die Diagnose weist für 1X2 nun ausdrücklich die 65-%-Schwelle aus.
