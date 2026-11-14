@@ -141,14 +141,12 @@ async function fetchTennisFixtures(diag){
 // Independent ATP/WTA model based on historical match results.
 // Sackmann-derived match data is CC BY-NC-SA 4.0: personal/non-commercial use only.
 const TENNIS_DATA_URLS = {
-  atp: [
-    'https://raw.githubusercontent.com/migumax/tennis_atp/master/2026.csv',
-    'https://raw.githubusercontent.com/Aneeshers/tennis-sackmann-archive/main/atp/atp_matches_2025.csv'
-  ],
-  wta: [
-    'https://raw.githubusercontent.com/lubinh0/ColliGoat/main/wta_matches_2026.csv',
-    'https://raw.githubusercontent.com/Aneeshers/tennis-sackmann-archive/main/wta/wta_matches_2025.csv'
-  ]
+  atp: [2026,2025,2024,2023].map(y=>
+    `https://raw.githubusercontent.com/Aneeshers/tennis-sackmann-archive/main/atp/atp_matches_${y}.csv`
+  ),
+  wta: [2026,2025,2024,2023].map(y=>
+    `https://raw.githubusercontent.com/Aneeshers/tennis-sackmann-archive/main/wta/wta_matches_${y}.csv`
+  )
 };
 function parseCSV(text){
   const lines=String(text||'').replace(/^\uFEFF/,'').split(/\r?\n/).filter(Boolean);
@@ -181,23 +179,29 @@ async function loadTourData(tour,diag){
   const urls=TENNIS_DATA_URLS[tour];
   const settled=await Promise.allSettled(urls.map(async url=>{
     const r=await fetch(url,{headers:{Accept:'text/csv'}});
-    if(!r.ok) throw Error('HTTP '+r.status+' '+url);
+    if(!r.ok) throw Error('HTTP '+r.status);
     const txt=await r.text();
     if(!txt.includes('winner_name') || !txt.includes('loser_name')) throw Error('CSV-Schema nicht erkannt');
     return {url,rows:parseCSV(txt)};
   }));
-  const rows=[];
+  const rows=[]; let ok=0, failed=0;
   settled.forEach((v,i)=>{
     if(v.status==='fulfilled'){
-      diag.push(`Tennisdaten ${tour.toUpperCase()} ${i===0?'2026':'2025'}: ${v.value.rows.length} Zeilen (${v.value.url})`);
+      ok++;
+      diag.push(`Matchdaten ${tour.toUpperCase()} ${urls[i].split('/').pop()}: ${v.value.rows.length} Datensätze`);
       rows.push(...v.value.rows);
-    }else diag.push(`Tennisdaten ${tour.toUpperCase()} ${i===0?'2026':'2025'} Fehler: ${v.reason?.message||v.reason}`);
+    }else{
+      failed++;
+      diag.push(`Matchdaten ${tour.toUpperCase()} ${urls[i].split('/').pop()}: nicht verfügbar (${v.reason?.message||v.reason})`);
+    }
   });
+  diag.push(`Matchdaten ${tour.toUpperCase()} Gesamt: ${rows.length} Datensätze aus ${ok}/${urls.length} verifizierten Tour-Dateien; ${failed} Quellen nicht verfügbar`);
   if(!rows.length) throw Error(`${tour.toUpperCase()}: keine historischen Matchdaten erreichbar`);
   return rows;
 }
 function buildTourRatings(rows){
   const overall=new Map(), surfaces=new Map(), recent=new Map(), h2h=new Map(), counts=new Map();
+  const names=new Set();
   const get=(map,k)=>map.get(k)||1500;
   const bump=(map,k,v)=>map.set(k,v);
   const sorted=rows.map(r=>({r,date:String(r.tourney_date||'')})).filter(x=>
@@ -206,6 +210,7 @@ function buildTourRatings(rows){
   for(const {r,date} of sorted){
     const w=normPlayer(r.winner_name), l=normPlayer(r.loser_name);
     if(!w||!l) continue;
+    names.add(w); names.add(l);
     const surf=String(r.surface||'').toLowerCase();
     const rw=get(overall,w), rl=get(overall,l);
     const ew=eloExpected(rw,rl), k=24;
@@ -222,12 +227,36 @@ function buildTourRatings(rows){
     if(w===pair.split('|')[0]) prior.a++; else prior.b++;
     h2h.set(pair,prior);
   }
-  return {overall,surfaces,recent,h2h,counts};
+  return {overall,surfaces,recent,h2h,counts,names};
+}
+function playerMatch(name,ratings){
+  const target=normPlayer(name);
+  if(ratings.names.has(target)) return target;
+  const tokens=target.split(' ').filter(Boolean);
+  if(tokens.length<2) return null;
+  const last=tokens[tokens.length-1], first=tokens[0];
+  const candidates=[];
+  for(const candidate of ratings.names){
+    const ct=candidate.split(' ');
+    const clast=ct[ct.length-1], cfirst=ct[0];
+    if(clast!==last) continue;
+    if(cfirst===first || (cfirst[0]===first[0] && first.length===1)) candidates.push(candidate);
+  }
+  if(candidates.length===1) return candidates[0];
+  // Conservative token similarity fallback; accept only a unique strong match.
+  const scored=[...ratings.names].map(candidate=>{
+    const a=new Set(tokens), b=new Set(candidate.split(' '));
+    const overlap=[...a].filter(x=>b.has(x)).length;
+    return {candidate,score:overlap/Math.max(a.size,b.size)};
+  }).sort((a,b)=>b.score-a.score);
+  if(scored[0]?.score>=0.8 && (!scored[1] || scored[0].score-scored[1].score>=0.2)) return scored[0].candidate;
+  return null;
 }
 function modelProbability(a,b,ratings,surface){
-  const pa=normPlayer(a), pb=normPlayer(b);
+  const pa=playerMatch(a,ratings), pb=playerMatch(b,ratings);
+  if(!pa||!pb) return {unmatched:[!pa?a:null,!pb?b:null].filter(Boolean)};
   const ca=ratings.counts.get(pa)||0, cb=ratings.counts.get(pb)||0;
-  if(ca<8||cb<8) return null;
+  if(ca<8||cb<8) return {insufficient:[ca<8?`${a} (${ca})`:null,cb<8?`${b} (${cb})`:null].filter(Boolean)};
   const ra=ratings.overall.get(pa)||1500, rb=ratings.overall.get(pb)||1500;
   let diff=ra-rb, usedSurface=false;
   if(surface){
@@ -238,19 +267,17 @@ function modelProbability(a,b,ratings,surface){
   const formA=(ratings.recent.get(pa)||[]).slice(-10), formB=(ratings.recent.get(pb)||[]).slice(-10);
   const winA=formA.length?formA.filter(x=>x.won).length/formA.length:.5;
   const winB=formB.length?formB.filter(x=>x.won).length/formB.length:.5;
-  diff += (winA-winB)*70;
+  diff += (winA-winB)*55;
   const pair=[pa,pb].sort().join('|'), h=ratings.h2h.get(pair);
   if(h){
     const aWins=pa===pair.split('|')[0]?h.a:h.b, total=h.a+h.b;
-    if(total>=2) diff += ((aWins/total)-.5)*50;
+    if(total>=2) diff += ((aWins/total)-.5)*35;
   }
   const probability=eloExpected(1500+diff,1500);
-  return {probability,ca,cb,usedSurface,formA:formA.length?winA:null,formB:formB.length?winB:null};
+  return {probability,ca,cb,usedSurface,formA:formA.length?winA:null,formB:formB.length?winB:null,matched:[pa,pb]};
 }
 async function createTennisModelTips(fixtures,diag){
-  const results=await Promise.allSettled([
-    loadTourData('atp',diag),loadTourData('wta',diag)
-  ]);
+  const results=await Promise.allSettled([loadTourData('atp',diag),loadTourData('wta',diag)]);
   const ratings={};
   ['atp','wta'].forEach((tour,i)=>{
     if(results[i].status==='fulfilled'){
@@ -258,28 +285,33 @@ async function createTennisModelTips(fixtures,diag){
       diag.push(`Tennis-Modell ${tour.toUpperCase()}: ${ratings[tour].counts.size} Spielerprofile`);
     }else diag.push(`Tennis-Modell ${tour.toUpperCase()} nicht verfügbar: ${results[i].reason?.message||results[i].reason}`);
   });
-  const out=[];
+  const out=[]; let evaluated=0, unmatched=0, insufficient=0, below=0, challenger=0;
   for(const m of fixtures){
-    const tour=String(m.league||'').toLowerCase().includes('wta')?'wta':'atp';
+    const league=String(m.league||'').toLowerCase();
+    const tour=league.includes('wta')?'wta':'atp';
+    if(/challenger|itf|futures/i.test(league)){challenger++;diag.push(`Nicht bewertet: ${m.league} – Challenger/ITF-Ergebnisdaten sind in dieser Datenquelle nicht enthalten.`);continue;}
     if(!ratings[tour]) continue;
     const p=modelProbability(m.home,m.away,ratings[tour],m.surface);
-    if(!p) {diag.push(`Modell übersprungen: zu wenig Historie für ${m.home} – ${m.away}`);continue;}
+    if(p.unmatched){unmatched++;diag.push(`Spieler nicht zugeordnet (${tour.toUpperCase()}): ${p.unmatched.join(' / ')} – ${m.home} vs. ${m.away}`);continue;}
+    if(p.insufficient){insufficient++;diag.push(`Zu wenig Historie (${tour.toUpperCase()}): ${p.insufficient.join(' / ')} – ${m.home} vs. ${m.away}`);continue;}
+    evaluated++;
     const confidence=p.probability*100;
     if(confidence>=60) out.push({
       home:m.home,away:m.away,league:m.league||'Tennis',kickoff:m.kickoff,
       pick:`${m.home} gewinnt`,prob:confidence,source:'Eigenes Elo-Modell',
-      modelInfo:`Elo · ${p.ca}/${p.cb} historische Matches${p.usedSurface?' · Belag berücksichtigt':''}`
+      modelInfo:`Elo · ${p.ca}/${p.cb} Matches · ${p.usedSurface?'Belag berücksichtigt':'ohne Belagsdaten'}`
     });
     else if(confidence<=40) out.push({
       home:m.home,away:m.away,league:m.league||'Tennis',kickoff:m.kickoff,
       pick:`${m.away} gewinnt`,prob:(1-p.probability)*100,source:'Eigenes Elo-Modell',
-      modelInfo:`Elo · ${p.ca}/${p.cb} historische Matches${p.usedSurface?' · Belag berücksichtigt':''}`
+      modelInfo:`Elo · ${p.ca}/${p.cb} Matches · ${p.usedSurface?'Belag berücksichtigt':'ohne Belagsdaten'}`
     });
+    else below++;
   }
   const unique=new Map();
   for(const x of out){const k=[normPlayer(x.home),normPlayer(x.away),x.kickoff].join('|');unique.set(k,x);}
   const sorted=[...unique.values()].sort((a,b)=>b.prob-a.prob).slice(0,5);
-  diag.push(`Eigenes Tennis-Modell: ${sorted.length} Prognosen ≥60 %; geprüfte Spiele=${fixtures.length}`);
+  diag.push(`Eigenes Tennis-Modell: ${sorted.length} Tipps ≥60 %; Spiele=${fixtures.length}; bewertet=${evaluated}; Spieler nicht zugeordnet=${unmatched}; zu wenig Historie=${insufficient}; unter 60 %=${below}; Challenger/ITF nicht abgedeckt=${challenger}`);
   return sorted;
 }
 

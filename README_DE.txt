@@ -44,14 +44,14 @@ VERSION 1.2.1 – TENNIS-ABRUF KORRIGIERT
 - Offizielle TIPERO-Dokumentation beschreibt den öffentlichen API-Zugriff als CORS-fähig und dokumentiert den tagesgenauen Endpoint.
 
 
-VERSION 1.2.4 – DETAILLIERTE TENNIS-API-DIAGNOSE
+VERSION 1.2.5 – DETAILLIERTE TENNIS-API-DIAGNOSE
 - ESPN-Spielplan liest Gruppenspiele aus events[].groupings[].competitions[] und berücksichtigt die Einzel-/Doppel-Gruppenbezeichnung.
 - TIPERO wird über den dokumentierten Tages-Endpunkt /api/picks/YYYY-MM-DD abgefragt.
 - Diagnose protokolliert je ATP/WTA Turnier- und Matchzahlen, den TIPERO-Abfragetag, Antwortstatus und konkrete HTTP-/Netzwerkfehler.
 - Fußballbereiche und Fußballfilter wurden nicht geändert.
 
 
-VERSION 1.2.4 – DETAILLIERTE TENNIS-API-DIAGNOSE
+VERSION 1.2.5 – DETAILLIERTE TENNIS-API-DIAGNOSE
 - Protokolliert für TIPERO, ESPN ATP und ESPN WTA HTTP-Status, Antworttyp, Antwortgröße und Laufzeit.
 - Zeigt eine kurze Antwortvorschau und JSON-/Netzwerkfehler an (einschließlich typischer CORS-/Browserblockaden).
 - ATP und WTA werden unabhängig voneinander ausgewertet; ein Fehler bei einer Quelle verhindert die andere nicht.
@@ -62,7 +62,7 @@ VERSION 1.2.4 – DETAILLIERTE TENNIS-API-DIAGNOSE
 UPDATE: Alle Dateien aus diesem Ordner gemeinsam in GitHub hochladen und bestehende Dateien ersetzen.
 
 
-TENNIS-MODELL v1.2.4
+TENNIS-MODELL v1.2.5
 - Eigenständige ATP-/WTA-Prognose auf Basis historischer Matchresultate.
 - Elo-Bewertung, letzte 10 Matchresultate, Head-to-Head sofern vorhanden und Belag-Elo sofern im Datensatz verfügbar.
 - Mindesthistorie: 8 Matches je Spieler; Mindestwahrscheinlichkeit: 60 %; maximal 5 Tipps.
@@ -70,3 +70,12 @@ TENNIS-MODELL v1.2.4
 - Lizenz: CC BY-NC-SA 4.0. Nur nicht-kommerzielle Nutzung; Attribution und ShareAlike beachten.
 - Modellwahrscheinlichkeiten sind nicht kalibriert oder als Gewinnversprechen zu verstehen.
 - Fußballbereich und Fußballfilter wurden nicht geändert.
+
+
+DATENABDECKUNG v1.2.5
+- Verifizierte Jeff-Sackmann-ATP- und WTA-Haupttour-Dateien 2023, 2024, 2025 und 2026.
+- Die früher verwendeten inoffiziellen/unsicheren Mirror-URLs wurden entfernt.
+- Spielerabgleich toleriert nun eindeutige Schreibweisen- und Namensvarianten; unsichere Zuordnungen werden nicht geraten.
+- Diagnose zählt geladene Datensätze, erkannte Spieler, unzugeordnete Namen, unzureichende Historie und Spiele unter 60 %.
+- Challenger/ITF wird ausdrücklich als nicht abgedeckt ausgewiesen, bis eine verlässliche separate Ergebnisquelle integriert ist. Es werden dafür keine falschen Prognosen erzeugt.
+- Fußballbereich und Fußballfilter bleiben unverändert.
