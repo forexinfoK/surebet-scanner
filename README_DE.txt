@@ -79,3 +79,10 @@ DATENABDECKUNG v1.2.5
 - Diagnose zählt geladene Datensätze, erkannte Spieler, unzugeordnete Namen, unzureichende Historie und Spiele unter 60 %.
 - Challenger/ITF wird ausdrücklich als nicht abgedeckt ausgewiesen, bis eine verlässliche separate Ergebnisquelle integriert ist. Es werden dafür keine falschen Prognosen erzeugt.
 - Fußballbereich und Fußballfilter bleiben unverändert.
+
+
+VERSION 1.2.6 – FUßBALLFILTER 1X2
+- Der Mindestfilter für Fußball 1X2 ist ausdrücklich auf 60 % festgelegt.
+- X1/X2 bleibt unverändert bei mindestens 60 %.
+- Maximale Tippzahl (7 je Bereich), Datenquellen, positive EV-Prüfung soweit von der Quelle geliefert, Tagesfilter und Tennis bleiben unverändert.
+- Hinweis: Im zugrunde liegenden v1.2.5-Quellpaket war der 1X2-Filter bereits auf 60 % eingestellt. Diese Version trennt die Filterwerte ausdrücklich, damit 1X2 künftig unabhängig angepasst werden kann.
