@@ -18,7 +18,7 @@ WICHTIG:
 - Keine Gewinnzusage. Bitte verantwortungsvoll wetten.
 
 
-VERSION 1.1.0 – TENNIS-ERWEITERUNG
+VERSION 1.2.0 – TENNIS-SPIELPLAN-ERGÄNZUNG
 - Neuer eigener Bereich „Tennis“, maximal 5 öffentliche Tipps pro Suchlauf.
 - Datenquelle: TIPERO öffentliche API (kostenlos, ohne API-Key).
 - Es werden nur Tipps für das aktuelle Datum (Europe/Vienna), mit mindestens 60 % ausgewiesenem Modellvertrauen und ohne Premium-Sperre angezeigt.
@@ -26,3 +26,10 @@ VERSION 1.1.0 – TENNIS-ERWEITERUNG
 - Die Tennisdaten werden unabhängig von den Fußball-Daten geladen. Ein Tennis-API-Fehler ändert die Fußballbereiche nicht.
 - Die freie Datenquelle liefert möglicherweise keine Startzeit. In diesem Fall wird „Beginn nicht angegeben“ angezeigt; Spielbeginn und Spielstatus bitte vor Abgabe prüfen.
 - Die Quelle veröffentlicht öffentliche und Premium-Tipps; der Scanner zeigt ausschließlich öffentliche Tipps.
+
+VERSION 1.2.0 – TENNIS-DATENABGLEICH
+- Neuer zusätzlicher Spielplanabruf über ESPN Scoreboard ATP und WTA (heutiges Datum, Europe/Vienna).
+- Spielplan und TIPERO-Tippfeed sind voneinander getrennt. Dadurch bleibt der Spielplan sichtbar, auch wenn TIPERO keine öffentlichen Tipps liefert.
+- Es werden keine eigenen Gewinnwahrscheinlichkeiten aus bloßen Spielplan-Daten erfunden. Ohne belastbares Modell erscheint ein Match nur als Spielplan-Eintrag, nicht als Wett-Tipp.
+- ESPN-Abdeckung kann Challenger-/ITF-Turniere unvollständig enthalten; ein leerer ESPN-Spielplan beweist daher nicht, dass weltweit keine Tennisspiele stattfinden.
+- Fußball 1X2 und X1/X2 bleiben unverändert.

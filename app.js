@@ -1,5 +1,7 @@
 const API='https://tipsaudit.com/api/v1/predictions', SKOR='https://skorbot.live/api/v1/matches.json';
 const TENNIS_API='https://api.tipero.app/api/latest';
+const ESPN_ATP='https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard';
+const ESPN_WTA='https://site.api.espn.com/apis/site/v2/sports/tennis/wta/scoreboard';
 const TZ='Europe/Vienna', MIN=60, MAX=7;
 const $=id=>document.getElementById(id);
 function nowVienna(){return new Date(new Date().toLocaleString('en-US',{timeZone:TZ}))}
@@ -42,6 +44,45 @@ async function fetchTennis(diag){
   if(!r.ok) throw Error('TIPERO HTTP '+r.status);
   return tennisPicks(await r.json(),diag);
 }
+
+function espnFixtures(payload,tour){
+  const events=Array.isArray(payload?.events)?payload.events:[];
+  const out=[];
+  for(const event of events){
+    const competitions=Array.isArray(event.competitions)?event.competitions:[];
+    for(const c of competitions){
+      const status=String(c.status?.type?.state||'').toLowerCase();
+      if(status==='post'||status==='in') continue;
+      const competitors=Array.isArray(c.competitors)?c.competitors:[];
+      const names=competitors.map(v=>v.athlete?.displayName||v.athlete?.fullName||v.displayName||'').filter(Boolean);
+      if(names.length<2) continue;
+      const start=c.date||c.startDate||event.date||null;
+      if(!start || !isUpcoming(start)) continue;
+      const type=String(c.type?.text||c.type?.slug||'');
+      if(type.toLowerCase().includes('double') || names.some(n=>n.includes('/'))) continue;
+      out.push({home:names[0],away:names[1],league:[tour,event.name,c.venue?.fullName].filter(Boolean).join(' · '),kickoff:start,pick:'Spielplan – keine Tippempfehlung',prob:null,source:'ESPN Spielplan'});
+    }
+  }
+  return out;
+}
+async function fetchTennisFixtures(diag){
+  const date=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()).replaceAll('-','');
+  const urls=[ESPN_ATP,ESPN_WTA].map(u=>u+'?dates='+date+'&limit=300');
+  const results=await Promise.all(urls.map(async (url)=>{const r=await fetch(url,{headers:{Accept:'application/json'}});if(!r.ok)throw Error('ESPN HTTP '+r.status);return r.json()}));
+  const matches=[...espnFixtures(results[0],'ATP'),...espnFixtures(results[1],'WTA')];
+  const unique=new Map();
+  for(const m of matches){const k=[teamKey(m.home),teamKey(m.away),m.kickoff].join('|');unique.set(k,m)}
+  const out=[...unique.values()].sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
+  diag.push(`ESPN Spielplan: ${out.length} kommende Einzelspiele (ATP/WTA)`);
+  return out;
+}
+function renderFixtures(arr){
+  const el=$('tennisFixtures');
+  el.className='cards'+(arr.length?'':' empty');
+  if(!arr.length){el.textContent='ESPN meldet derzeit keine kommenden Einzelspiele für heute. Das ist keine Aussage über alle Challenger-/ITF-Turniere.';return}
+  el.innerHTML=arr.map(x=>`<article class="tip"><div class="tiptop"><span class="league">${esc(x.league)}</span><span>${fmt(x.kickoff)} Uhr</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="meta">Spielplan-Eintrag · keine eigene Gewinnwahrscheinlichkeit</div><span class="source">${esc(x.source)}</span></article>`).join('');
+}
+
 function render(id,arr,empty){let el=$(id);el.className='cards'+(arr.length?'':' empty');if(!arr.length){el.textContent=empty;return}el.innerHTML=arr.map(x=>`<article class="tip"><div class="tiptop"><span class="league">${esc(x.league)}</span><span>${x.kickoff?fmt(x.kickoff)+' Uhr':'Beginn nicht angegeben'}</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="pickrow"><span class="pick">${esc(x.pick)}</span><span class="prob">${x.prob.toFixed(1)} %</span></div>${x.odds?`<div class="meta">Erfasste Quote: ${x.odds.toFixed(2)}</div>`:''}<span class="source">${esc(x.source)}</span></article>`).join('')}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function eligible(arr){return dedupe(arr).filter(x=>isUpcoming(x.kickoff)).slice(0,MAX)}
@@ -58,17 +99,19 @@ async function search(){
   render('dcList',fd,'Keine passenden, noch nicht gestarteten X1/X2-Tipps.');
   $('mainCount').textContent=fm.length;$('dcCount').textContent=fd.length;
   diag.push(`Aktuelle Tipps: 1X2 ${fm.length}/${MAX}; X1/X2 ${fd.length}/${MAX}`);
+  let fixtures=[];
+  try{fixtures=await fetchTennisFixtures(diag);renderFixtures(fixtures)}catch(e){renderFixtures([]);diag.push('ESPN Spielplan Fehler: '+e.message)}
   try{
     tennis=await fetchTennis(diag);
-    render('tennisList',tennis,'Keine öffentlichen Tennistipps mit mindestens 60 % Modellvertrauen für heute.');
+    render('tennisList',tennis,'Keine öffentlichen TIPERO-Tennistipps mit mindestens 60 % Modellvertrauen für heute.');
     $('tennisCount').textContent=tennis.length;
-    diag.push(`Tennis: ${tennis.length}/5 öffentliche Tipps mit mindestens 60 %`);
-    $('status').textContent=`Suchlauf abgeschlossen: ${fm.length} Fußballtipps, ${fd.length} X1/X2-Tipps und ${tennis.length} Tennistipps.`;
+    diag.push(`Tennis-Tipps: ${tennis.length}/5 öffentliche TIPERO-Tipps mit mindestens 60 %`);
+    $('status').textContent=`Suchlauf abgeschlossen: ${fm.length} Fußballtipps, ${fd.length} X1/X2-Tipps, ${tennis.length} Tennistipps und ${fixtures.length} Spielplan-Einträge.`;
   }catch(e){
-    render('tennisList',[],'Tennisdaten derzeit nicht abrufbar.');
+    render('tennisList',[],'TIPERO-Tipps derzeit nicht abrufbar. Der Spielplan wird davon unabhängig angezeigt.');
     $('tennisCount').textContent='0';
     diag.push('TIPERO Fehler: '+e.message);
-    $('status').textContent=`Fußballsuche abgeschlossen: ${fm.length} Fußballtipps und ${fd.length} X1/X2-Tipps. Tennisdaten derzeit nicht abrufbar.`;
+    $('status').textContent=`Fußballsuche abgeschlossen: ${fm.length} Fußballtipps, ${fd.length} X1/X2-Tipps und ${fixtures.length} Tennis-Spielplan-Einträge.`;
   }
  }catch(e){
   $('status').className='status error';$('status').textContent='Fußball-Abruf nicht möglich: '+e.message+'. Tennis wird bei einem erfolgreichen Fußballabruf separat geladen.';
