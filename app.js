@@ -104,7 +104,7 @@ function espnFixtures(payload,tour,diag){
       if(!start || !isUpcoming(start)) continue;
       const type=String(c.type?.text||c.type?.slug||'');
       if(/double/i.test(type)) continue;
-      out.push({home:names[0],away:names[1],league:[tour,event.name,groupName,c.round?.displayName].filter(Boolean).join(' · '),kickoff:start,pick:'Spielplan – keine Tippempfehlung',prob:null,source:'ESPN Spielplan'});
+      out.push({home:names[0],away:names[1],league:[tour,event.name,groupName,c.round?.displayName].filter(Boolean).join(' · '),kickoff:start,surface:c.surface?.displayName||event.surface?.displayName||event.surface||null,pick:'Spielplan – keine Tippempfehlung',prob:null,source:'ESPN Spielplan'});
     }
   }
   if(diag) diag.push(`ESPN ${tour}: ${events.length} Turniere, ${grouped} Gruppenspiele, ${rawMatches} geprüfte Matches`);
@@ -137,6 +137,152 @@ async function fetchTennisFixtures(diag){
   return out;
 }
 
+
+// Independent ATP/WTA model based on historical match results.
+// Sackmann-derived match data is CC BY-NC-SA 4.0: personal/non-commercial use only.
+const TENNIS_DATA_URLS = {
+  atp: [
+    'https://raw.githubusercontent.com/migumax/tennis_atp/master/2026.csv',
+    'https://raw.githubusercontent.com/Aneeshers/tennis-sackmann-archive/main/atp/atp_matches_2025.csv'
+  ],
+  wta: [
+    'https://raw.githubusercontent.com/lubinh0/ColliGoat/main/wta_matches_2026.csv',
+    'https://raw.githubusercontent.com/Aneeshers/tennis-sackmann-archive/main/wta/wta_matches_2025.csv'
+  ]
+};
+function parseCSV(text){
+  const lines=String(text||'').replace(/^\uFEFF/,'').split(/\r?\n/).filter(Boolean);
+  if(lines.length<2) return [];
+  const splitLine=line=>{
+    const out=[]; let cur='', quoted=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch==='"' && line[i+1]==='"' && quoted){cur+='"';i++;}
+      else if(ch==='"') quoted=!quoted;
+      else if(ch===',' && !quoted){out.push(cur);cur='';}
+      else cur+=ch;
+    }
+    out.push(cur); return out;
+  };
+  const headers=splitLine(lines[0]).map(x=>x.trim());
+  return lines.slice(1).map(line=>{
+    const vals=splitLine(line), row={};
+    headers.forEach((h,i)=>row[h]=(vals[i]||'').trim());
+    return row;
+  });
+}
+function normPlayer(s){
+  return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/\b(jr|sr|ii|iii|iv)\b/g,'')
+    .replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+}
+function eloExpected(a,b){return 1/(1+Math.pow(10,(b-a)/400))}
+async function loadTourData(tour,diag){
+  const urls=TENNIS_DATA_URLS[tour];
+  const settled=await Promise.allSettled(urls.map(async url=>{
+    const r=await fetch(url,{headers:{Accept:'text/csv'}});
+    if(!r.ok) throw Error('HTTP '+r.status+' '+url);
+    const txt=await r.text();
+    if(!txt.includes('winner_name') || !txt.includes('loser_name')) throw Error('CSV-Schema nicht erkannt');
+    return {url,rows:parseCSV(txt)};
+  }));
+  const rows=[];
+  settled.forEach((v,i)=>{
+    if(v.status==='fulfilled'){
+      diag.push(`Tennisdaten ${tour.toUpperCase()} ${i===0?'2026':'2025'}: ${v.value.rows.length} Zeilen (${v.value.url})`);
+      rows.push(...v.value.rows);
+    }else diag.push(`Tennisdaten ${tour.toUpperCase()} ${i===0?'2026':'2025'} Fehler: ${v.reason?.message||v.reason}`);
+  });
+  if(!rows.length) throw Error(`${tour.toUpperCase()}: keine historischen Matchdaten erreichbar`);
+  return rows;
+}
+function buildTourRatings(rows){
+  const overall=new Map(), surfaces=new Map(), recent=new Map(), h2h=new Map(), counts=new Map();
+  const get=(map,k)=>map.get(k)||1500;
+  const bump=(map,k,v)=>map.set(k,v);
+  const sorted=rows.map(r=>({r,date:String(r.tourney_date||'')})).filter(x=>
+    x.r.winner_name && x.r.loser_name && /^\d{8}$/.test(x.date)
+  ).sort((a,b)=>a.date.localeCompare(b.date));
+  for(const {r,date} of sorted){
+    const w=normPlayer(r.winner_name), l=normPlayer(r.loser_name);
+    if(!w||!l) continue;
+    const surf=String(r.surface||'').toLowerCase();
+    const rw=get(overall,w), rl=get(overall,l);
+    const ew=eloExpected(rw,rl), k=24;
+    bump(overall,w,rw+k*(1-ew)); bump(overall,l,rl-k*(1-ew));
+    if(surf){
+      const sw=get(surfaces,w+'|'+surf), sl=get(surfaces,l+'|'+surf), es=eloExpected(sw,sl), sk=24;
+      bump(surfaces,w+'|'+surf,sw+sk*(1-es)); bump(surfaces,l+'|'+surf,sl-sk*(1-es));
+    }
+    for(const [player,won] of [[w,true],[l,false]]){
+      const arr=recent.get(player)||[]; arr.push({won,date}); if(arr.length>20) arr.shift(); recent.set(player,arr);
+      counts.set(player,(counts.get(player)||0)+1);
+    }
+    const pair=[w,l].sort().join('|'), prior=h2h.get(pair)||{a:0,b:0};
+    if(w===pair.split('|')[0]) prior.a++; else prior.b++;
+    h2h.set(pair,prior);
+  }
+  return {overall,surfaces,recent,h2h,counts};
+}
+function modelProbability(a,b,ratings,surface){
+  const pa=normPlayer(a), pb=normPlayer(b);
+  const ca=ratings.counts.get(pa)||0, cb=ratings.counts.get(pb)||0;
+  if(ca<8||cb<8) return null;
+  const ra=ratings.overall.get(pa)||1500, rb=ratings.overall.get(pb)||1500;
+  let diff=ra-rb, usedSurface=false;
+  if(surface){
+    const s=String(surface).toLowerCase();
+    const sa=ratings.surfaces.get(pa+'|'+s), sb=ratings.surfaces.get(pb+'|'+s);
+    if(sa&&sb){diff=diff*.65+(sa-sb)*.35;usedSurface=true;}
+  }
+  const formA=(ratings.recent.get(pa)||[]).slice(-10), formB=(ratings.recent.get(pb)||[]).slice(-10);
+  const winA=formA.length?formA.filter(x=>x.won).length/formA.length:.5;
+  const winB=formB.length?formB.filter(x=>x.won).length/formB.length:.5;
+  diff += (winA-winB)*70;
+  const pair=[pa,pb].sort().join('|'), h=ratings.h2h.get(pair);
+  if(h){
+    const aWins=pa===pair.split('|')[0]?h.a:h.b, total=h.a+h.b;
+    if(total>=2) diff += ((aWins/total)-.5)*50;
+  }
+  const probability=eloExpected(1500+diff,1500);
+  return {probability,ca,cb,usedSurface,formA:formA.length?winA:null,formB:formB.length?winB:null};
+}
+async function createTennisModelTips(fixtures,diag){
+  const results=await Promise.allSettled([
+    loadTourData('atp',diag),loadTourData('wta',diag)
+  ]);
+  const ratings={};
+  ['atp','wta'].forEach((tour,i)=>{
+    if(results[i].status==='fulfilled'){
+      ratings[tour]=buildTourRatings(results[i].value);
+      diag.push(`Tennis-Modell ${tour.toUpperCase()}: ${ratings[tour].counts.size} Spielerprofile`);
+    }else diag.push(`Tennis-Modell ${tour.toUpperCase()} nicht verfügbar: ${results[i].reason?.message||results[i].reason}`);
+  });
+  const out=[];
+  for(const m of fixtures){
+    const tour=String(m.league||'').toLowerCase().includes('wta')?'wta':'atp';
+    if(!ratings[tour]) continue;
+    const p=modelProbability(m.home,m.away,ratings[tour],m.surface);
+    if(!p) {diag.push(`Modell übersprungen: zu wenig Historie für ${m.home} – ${m.away}`);continue;}
+    const confidence=p.probability*100;
+    if(confidence>=60) out.push({
+      home:m.home,away:m.away,league:m.league||'Tennis',kickoff:m.kickoff,
+      pick:`${m.home} gewinnt`,prob:confidence,source:'Eigenes Elo-Modell',
+      modelInfo:`Elo · ${p.ca}/${p.cb} historische Matches${p.usedSurface?' · Belag berücksichtigt':''}`
+    });
+    else if(confidence<=40) out.push({
+      home:m.home,away:m.away,league:m.league||'Tennis',kickoff:m.kickoff,
+      pick:`${m.away} gewinnt`,prob:(1-p.probability)*100,source:'Eigenes Elo-Modell',
+      modelInfo:`Elo · ${p.ca}/${p.cb} historische Matches${p.usedSurface?' · Belag berücksichtigt':''}`
+    });
+  }
+  const unique=new Map();
+  for(const x of out){const k=[normPlayer(x.home),normPlayer(x.away),x.kickoff].join('|');unique.set(k,x);}
+  const sorted=[...unique.values()].sort((a,b)=>b.prob-a.prob).slice(0,5);
+  diag.push(`Eigenes Tennis-Modell: ${sorted.length} Prognosen ≥60 %; geprüfte Spiele=${fixtures.length}`);
+  return sorted;
+}
+
 function renderFixtures(arr){
   const el=$('tennisFixtures');
   el.className='cards'+(arr.length?'':' empty');
@@ -144,7 +290,7 @@ function renderFixtures(arr){
   el.innerHTML=arr.map(x=>`<article class="tip"><div class="tiptop"><span class="league">${esc(x.league)}</span><span>${fmt(x.kickoff)} Uhr</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="meta">Spielplan-Eintrag · keine eigene Gewinnwahrscheinlichkeit</div><span class="source">${esc(x.source)}</span></article>`).join('');
 }
 
-function render(id,arr,empty){let el=$(id);el.className='cards'+(arr.length?'':' empty');if(!arr.length){el.textContent=empty;return}el.innerHTML=arr.map(x=>`<article class="tip"><div class="tiptop"><span class="league">${esc(x.league)}</span><span>${x.kickoff?fmt(x.kickoff)+' Uhr':'Beginn nicht angegeben'}</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="pickrow"><span class="pick">${esc(x.pick)}</span><span class="prob">${x.prob.toFixed(1)} %</span></div>${x.odds?`<div class="meta">Erfasste Quote: ${x.odds.toFixed(2)}</div>`:''}<span class="source">${esc(x.source)}</span></article>`).join('')}
+function render(id,arr,empty){let el=$(id);el.className='cards'+(arr.length?'':' empty');if(!arr.length){el.textContent=empty;return}el.innerHTML=arr.map(x=>`<article class="tip"><div class="tiptop"><span class="league">${esc(x.league)}</span><span>${x.kickoff?fmt(x.kickoff)+' Uhr':'Beginn nicht angegeben'}</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="pickrow"><span class="pick">${esc(x.pick)}</span><span class="prob">${x.prob.toFixed(1)} %</span></div>${x.odds?`<div class="meta">Erfasste Quote: ${x.odds.toFixed(2)}</div>`:''}${x.modelInfo?`<div class="meta">${esc(x.modelInfo)}</div>`:''}<span class="source">${esc(x.source)}</span></article>`).join('')}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function eligible(arr){return dedupe(arr).filter(x=>isUpcoming(x.kickoff)).slice(0,MAX)}
 async function search(){
@@ -163,16 +309,20 @@ async function search(){
   let fixtures=[];
   try{fixtures=await fetchTennisFixtures(diag);renderFixtures(fixtures)}catch(e){renderFixtures([]);diag.push('ESPN Spielplan Fehler: '+e.message)}
   try{
-    tennis=await fetchTennis(diag);
-    render('tennisList',tennis,'Keine öffentlichen TIPERO-Tennistipps mit mindestens 60 % Modellvertrauen für heute.');
+    const own=await createTennisModelTips(fixtures,diag);
+    let publicTips=[];
+    try{publicTips=await fetchTennis(diag)}catch(e){diag.push('TIPERO Zusatzquelle nicht verfügbar: '+e.message)}
+    const combined=[...own,...publicTips].sort((a,b)=>b.prob-a.prob).slice(0,5);
+    tennis=combined;
+    render('tennisList',tennis,'Keine belastbaren Tennisprognosen mit mindestens 60 % Modellwahrscheinlichkeit. Es werden keine Tipps künstlich erzeugt.');
     $('tennisCount').textContent=tennis.length;
-    diag.push(`Tennis-Tipps: ${tennis.length}/5 öffentliche TIPERO-Tipps mit mindestens 60 %`);
+    diag.push(`Tennis-Tipps gesamt: ${tennis.length}/5 (eigenes Modell=${own.length}, TIPERO öffentlich=${publicTips.length})`);
     $('status').textContent=`Suchlauf abgeschlossen: ${fm.length} Fußballtipps, ${fd.length} X1/X2-Tipps, ${tennis.length} Tennistipps und ${fixtures.length} Spielplan-Einträge.`;
   }catch(e){
-    render('tennisList',[],'TIPERO-Tipps derzeit nicht abrufbar. Der Spielplan wird davon unabhängig angezeigt.');
+    render('tennisList',[],'Eigenes Tennis-Modell derzeit nicht verfügbar. Bitte Diagnose prüfen.');
     $('tennisCount').textContent='0';
-    diag.push('TIPERO Fehler: '+e.message);
-    $('status').textContent=`Fußballsuche abgeschlossen: ${fm.length} Fußballtipps, ${fd.length} X1/X2-Tipps und ${fixtures.length} Tennis-Spielplan-Einträge.`;
+    diag.push('Tennis-Modell Fehler: '+e.message);
+    $('status').textContent=`Suchlauf abgeschlossen: ${fm.length} Fußballtipps, ${fd.length} X1/X2-Tipps, 0 eigene Tennisprognosen und ${fixtures.length} Spielplan-Einträge.`;
   }
  }catch(e){
   $('status').className='status error';$('status').textContent='Fußball-Abruf nicht möglich: '+e.message+'. Tennis wird bei einem erfolgreichen Fußballabruf separat geladen.';
