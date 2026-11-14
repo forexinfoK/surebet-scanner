@@ -2,7 +2,7 @@ const API='https://tipsaudit.com/api/v1/predictions', SKOR='https://skorbot.live
 const TENNIS_API='https://api.tipero.app/api/picks/';
 const ESPN_ATP='https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard';
 const ESPN_WTA='https://site.api.espn.com/apis/site/v2/sports/tennis/wta/scoreboard';
-const TZ='Europe/Vienna', MIN_MAIN=55, MIN_DC=60, MAX=7;
+const TZ='Europe/Vienna', MIN_MAIN=60, MIN_DC=60, MAX=7;
 const $=id=>document.getElementById(id);
 function nowVienna(){return new Date(new Date().toLocaleString('en-US',{timeZone:TZ}))}
 function dateKey(d){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(d)}
@@ -66,7 +66,7 @@ function norm(payload,diag){
     if(prob>=MIN_DC/100) dc.push({home:x.home,away:x.away,league:x.league||'Unbekannte Liga',kickoff:x.kickoff_utc,pick:s+' · '+label,prob:prob*100,source:'TipsAudit abgeleitet'});
   }
  }
- diag.push(`TipsAudit 1X2-Prüfung: heute & offen=${upcoming}; gültige Wahrscheinlichkeiten=${validProb}; Value-Blöcke=${withValue}; gültige Auswahlen=${validSelection}; unter ${MIN_MAIN} %=${belowThreshold}; Quote fehlt=${missingOdds}; kein positiver EV=${noPositiveEdge}; Wahrscheinlichkeitsauswahlen=${fallbackAdded}`);
+ diag.push(`TipsAudit 1X2-Prüfung: heute & offen=${upcoming}; gültige Wahrscheinlichkeiten=${validProb}; Value-Blöcke=${withValue}; gültige Auswahlen=${validSelection}; unter 60 %=${belowThreshold}; Quote fehlt=${missingOdds}; kein positiver EV=${noPositiveEdge}; Wahrscheinlichkeitsauswahlen=${fallbackAdded}`);
  diag.push(`TipsAudit: ${main.length} 1X2-Kandidaten (Value + Wahrscheinlichkeitsauswahl), ${dc.length} X1/X2-Kandidaten`);
  return {main,dc};
 }
