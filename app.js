@@ -14,7 +14,8 @@ function key(x){return [dateKey(parseDate(x.kickoff)||new Date()),fmt(x.kickoff)
 function norm(payload,diag){
  const arr=Array.isArray(payload)?payload:(Array.isArray(payload?.predictions)?payload.predictions:[]);
  const main=[],dc=[];
- let upcoming=0,validProb=0,withValue=0,validSelection=0,belowThreshold=0,missingOdds=0,noPositiveEdge=0;
+ let upcoming=0,validProb=0,withValue=0,validSelection=0,belowThreshold=0,missingOdds=0,noPositiveEdge=0,fallbackAdded=0;
+ const mainKeys=new Set();
  diag.push(`TipsAudit: ${arr.length} Rohdatensätze`);
  for(const x of arr){
   if(!x || !isUpcoming(x.kickoff_utc)) continue;
@@ -24,8 +25,9 @@ function norm(payload,diag){
   const probsValid=['1','X','2'].every(k=>Number.isFinite(probs[k])&&probs[k]>=0&&probs[k]<=1);
   if(probsValid) validProb++;
   const rawSel=String(v.selection??'').trim().toLowerCase();
-  const sel=({home:'1',draw:'X',away:'2',x:'X', '1':'1','2':'2'})[rawSel]||rawSel.toUpperCase();
+  const sel=({home:'1',draw:'X',away:'2',x:'X','1':'1','2':'2'})[rawSel]||rawSel.toUpperCase();
   if(Object.keys(v).length) withValue++;
+  let valueAdded=false;
   if(['1','X','2'].includes(sel)){
    validSelection++;
    const prob=probs[sel];
@@ -33,12 +35,30 @@ function norm(payload,diag){
    if(!Number.isFinite(prob)||prob<MIN_MAIN/100){belowThreshold++;}
    else if(!Number.isFinite(best)||best<=1){missingOdds++;}
    else {
-    // Positive EV only: the available soft price must exceed the fair price implied by the fair probability.
     const fairPrice=1/prob;
     if(best<=fairPrice){noPositiveEdge++;}
-    else main.push({home:x.home,away:x.away,league:x.league||'Unbekannte Liga',kickoff:x.kickoff_utc,
-      pick:({1:'Heimsieg',X:'Unentschieden',2:'Auswärtssieg'})[sel],prob:prob*100,
-      source:'TipsAudit · Value-Signal',odds:best});
+    else {
+     main.push({home:x.home,away:x.away,league:x.league||'Unbekannte Liga',kickoff:x.kickoff_utc,
+      pick:({'1':'Heimsieg',X:'Unentschieden','2':'Auswärtssieg'})[sel],prob:prob*100,
+      source:'TipsAudit · aktuelles Value-Signal',odds:best});
+     mainKeys.add([x.kickoff_utc,teamKey(x.home),teamKey(x.away)].join('|'));
+     valueAdded=true;
+    }
+   }
+  }
+  // Fallback: TipsAudit publishes fair probabilities for every priced match, but only
+  // publishes a value block when a soft bookmaker currently beats the fair price.
+  // Show the strongest 1X2 probability as a statistical candidate if no value signal exists.
+  if(probsValid&&!valueAdded){
+   const bestSelection=Object.entries(probs).sort((a,b)=>b[1]-a[1])[0];
+   const [fallbackSel,fallbackProb]=bestSelection;
+   const matchKey=[x.kickoff_utc,teamKey(x.home),teamKey(x.away)].join('|');
+   if(fallbackProb>=MIN_MAIN/100&&!mainKeys.has(matchKey)){
+    main.push({home:x.home,away:x.away,league:x.league||'Unbekannte Liga',kickoff:x.kickoff_utc,
+     pick:({'1':'Heimsieg',X:'Unentschieden','2':'Auswärtssieg'})[fallbackSel],prob:fallbackProb*100,
+     source:'TipsAudit · Wahrscheinlichkeitsauswahl',
+     modelInfo:'Kein aktuelles Value-Signal mit bestätigter Soft-Quote. Quote und Spielbarkeit vor dem Einsatz selbst prüfen.'});
+    fallbackAdded++;
    }
   }
   if(probsValid){
@@ -46,8 +66,8 @@ function norm(payload,diag){
     if(prob>=MIN_DC/100) dc.push({home:x.home,away:x.away,league:x.league||'Unbekannte Liga',kickoff:x.kickoff_utc,pick:s+' · '+label,prob:prob*100,source:'TipsAudit abgeleitet'});
   }
  }
- diag.push(`TipsAudit 1X2-Prüfung: heute & offen=${upcoming}; gültige Wahrscheinlichkeiten=${validProb}; Value-Blöcke=${withValue}; gültige Auswahlen=${validSelection}; unter 60 %=${belowThreshold}; Quote fehlt=${missingOdds}; kein positiver EV=${noPositiveEdge}`);
- diag.push(`TipsAudit: ${main.length} 1X2-Value-Kandidaten, ${dc.length} X1/X2-Kandidaten`);
+ diag.push(`TipsAudit 1X2-Prüfung: heute & offen=${upcoming}; gültige Wahrscheinlichkeiten=${validProb}; Value-Blöcke=${withValue}; gültige Auswahlen=${validSelection}; unter 60 %=${belowThreshold}; Quote fehlt=${missingOdds}; kein positiver EV=${noPositiveEdge}; Wahrscheinlichkeitsauswahlen=${fallbackAdded}`);
+ diag.push(`TipsAudit: ${main.length} 1X2-Kandidaten (Value + Wahrscheinlichkeitsauswahl), ${dc.length} X1/X2-Kandidaten`);
  return {main,dc};
 }
 async function skor(diag){let r=await fetch(SKOR,{headers:{Accept:'application/json'}});if(!r.ok)throw Error('Skorbot HTTP '+r.status);let p=await r.json(),a=p.matches||p||[],out=[];diag.push(`Skorbot: ${a.length} Rohspiele`);for(let m of a){if(!['scheduled','pending','not_started'].includes(String(m.status||'').toLowerCase()))continue;let k=m.kickoff||m.kickoff_utc||m.start_time;if(!isUpcoming(k))continue;let q=m.probabilities||m.prediction||{},p1=Number(q.home),px=Number(q.draw),p2=Number(q.away),sum=p1+px+p2;if(!(p1>=0&&px>=0&&p2>=0&&sum>0))continue;for(let [s,label,pb] of [['1X','Heim oder Unentschieden',(p1+px)/sum],['X2','Unentschieden oder Auswärts',(px+p2)/sum]])if(pb>=MIN_DC/100)out.push({home:m.home||m.home_team,away:m.away||m.away_team,league:m.competition||m.league||'Unbekannte Liga',kickoff:k,pick:s+' · '+label,prob:pb*100,source:'Skorbot'})}diag.push(`Skorbot: ${out.length} X1/X2-Kandidaten`);return out}

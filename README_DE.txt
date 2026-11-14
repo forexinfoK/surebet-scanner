@@ -88,9 +88,12 @@ VERSION 1.2.6 – FUßBALLFILTER 1X2
 - Hinweis: Im zugrunde liegenden v1.2.5-Quellpaket war der 1X2-Filter bereits auf 60 % eingestellt. Diese Version trennt die Filterwerte ausdrücklich, damit 1X2 künftig unabhängig angepasst werden kann.
 
 
-VERSION 1.2.7 – 1X2-VERARBEITUNG UND DIAGNOSE
+VERSION 1.2.8 – 1X2-VERARBEITUNG UND DIAGNOSE
 - Ausschließlich die 1X2-Auswertung wurde überarbeitet.
 - Ein 1X2-Tipp wird nur angezeigt, wenn TipsAudit eine gültige Auswahl, mindestens 60 % faire Wahrscheinlichkeit und eine Soft-Quote oberhalb der daraus abgeleiteten fairen Quote liefert.
 - Die Diagnose zählt nun getrennt: heutige offene Spiele, gültige Wahrscheinlichkeiten, Value-Blöcke, gültige Auswahlen, Unterschreitungen der 60-%-Schwelle, fehlende Quoten und fehlenden positiven EV.
 - Es werden keine 1X2-Tipps künstlich aus der wahrscheinlichsten Auswahl erzeugt. Ohne bestätigtes Value-Signal bleibt der Bereich gegebenenfalls leer.
 - X1/X2, Tennis, Spielplan, Datenquellen und übrige Einstellungen wurden nicht geändert.
+
+
+Version 1.2.8: Der Fußballbereich 1X2 zeigt zusätzlich zur aktuellen Value-Auswahl auch die wahrscheinlichste 1X2-Auswahl aus den fairen TipsAudit-Wahrscheinlichkeiten, sofern sie mindestens 60 % erreicht. Diese ergänzenden Auswahlen haben nicht zwingend eine bestätigte spielbare Quote und sind ausdrücklich keine Value-Signale. Quote und Verfügbarkeit vor dem Einsatz beim Wettanbieter prüfen. X1/X2 und Tennis unverändert.
