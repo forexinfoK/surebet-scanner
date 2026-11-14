@@ -7,11 +7,11 @@
 <title>Surebet Scanner</title><link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><div class="brand"><span class="ball">⚽</span><div><h1>Surebet Scanner</h1><small>Mobile · v1.3.0</small></div></div><div id="clock"></div></header>
+<header><div class="brand"><span class="ball">⚽</span><div><h1>Surebet Scanner</h1><small>Mobile · v1.3.1</small></div></div><div id="clock"></div></header>
 <main>
 <section class="hero"><div><p class="eyebrow">MANUELLER SUCHLAUF</p><h2>Deine heutigen Tipps</h2><p class="muted">Nur heutige, noch nicht gestartete Spiele · Europe/Vienna</p></div><button id="searchBtn">Jetzt suchen</button></section>
 <div id="status" class="status">Bereit. Starte eine Suche, wenn du möchtest.</div>
-<nav><button class="tab active" data-tab="main">Fußball 1X2 <b id="mainCount">0</b></button><button class="tab" data-tab="dc">X1 / X2 <b id="dcCount">0</b></button><button class="tab" data-tab="tennis">Tennis <b id="tennisCount">0</b></button></nav>
+<nav><button class="tab active" data-tab="main">Fußball 1X2 <b id="mainCount">0</b></button><button class="tab" data-tab="dc">X1 / X2 <b id="dcCount">0</b></button><button class="tab" data-tab="tennis">Tennis <b id="tennisCount">0</b></button><button class="tab" data-tab="performance">Performance</button></nav>
 <section id="main" class="panel active"><div class="section-head"><h3>Fußballtipps</h3><span>max. 7 pro Suchlauf</span></div><div id="mainList" class="cards empty">Noch keine Suche durchgeführt.</div></section>
 <section id="dc" class="panel"><div class="section-head"><h3>Doppelte Chance</h3><span>max. 7 pro Suchlauf</span></div><div id="dcList" class="cards empty">Noch keine Suche durchgeführt.</div></section>
 <section id="tennis" class="panel">
@@ -20,6 +20,11 @@
 <div class="section-head" style="margin-top:18px"><h3>Heutiger Spielplan</h3><span>ATP / WTA</span></div>
 <p class="muted">Spielplan-Einträge sind keine Wett-Tipps. Ohne belastbare Modellwahrscheinlichkeit wird keine Seite empfohlen.</p>
 <div id="tennisFixtures" class="cards empty">Noch keine Spielplandaten geladen.</div>
+</section>
+<section id="performance" class="panel">
+<div class="section-head"><h3>Performance</h3><span>Fußball & Tennis</span></div>
+<div class="authbox" id="authBox"><h3>Cloud-Synchronisierung</h3><p class="muted">Mit derselben E-Mail-Adresse auf Handy und PC anmelden.</p><label>E-Mail<input id="authEmail" type="email" autocomplete="email" placeholder="name@beispiel.at"></label><label>Passwort<input id="authPassword" type="password" autocomplete="current-password" placeholder="Mindestens 8 Zeichen"></label><div class="authactions"><button id="signInBtn">Anmelden</button><button id="signUpBtn" class="secondary">Konto erstellen</button></div><p id="authMessage" class="meta">Noch nicht verbunden.</p></div>
+<div id="perfArea" hidden><div class="perfhead"><div><b id="signedInAs"></b><p class="muted">Tipps werden nach jedem Suchlauf automatisch gespeichert.</p></div><button id="signOutBtn" class="secondary">Abmelden</button></div><div class="metricgrid"><div class="metric"><small>Abgeschlossen</small><b id="mSettled">0</b></div><div class="metric"><small>Trefferquote</small><b id="mHit">—</b></div><div class="metric"><small>Gewinn / Verlust</small><b id="mProfit">—</b></div><div class="metric"><small>ROI</small><b id="mRoi">—</b></div></div><div class="section-head"><h3>Tipp-Historie</h3><button id="refreshPerfBtn" class="secondary">Aktualisieren</button></div><div id="perfList" class="cards empty">Noch keine gespeicherten Tipps.</div></div>
 </section>
 <section class="footnote"><b>Filter Fußball 1X2:</b> mindestens 65 % · maximal 7 Tipps.<br><b>Filter Fußball X1/X2:</b> unverändert mindestens 60 % · maximal 7 Tipps.<br><b>Filter Tennis:</b> Eigenes ATP/WTA-Elo-Modell auf Basis verifizierter historischer Tour-Matchdaten 2023–2026 · mindestens 60 % Modellwahrscheinlichkeit · maximal 5 Tipps. Öffentliche TIPERO-Tipps werden ergänzend berücksichtigt. Challenger/ITF wird derzeit nicht prognostiziert, wenn keine passende historische Datenbasis vorliegt.<br><b>Hinweis:</b> Wahrscheinlichkeiten sind Modellwerte, keine Gewinnzusage. X1/X2 wird aus den 1X2-Werten abgeleitet und ist keine unabhängige Prognose. Bei Tennisprognosen sind statistische Modellschätzungen, keine Gewinnzusage. Das Modell benötigt ausreichend historische Matches je Spieler. Matchdaten: Jeff Sackmann-Datensätze 2023–2026, CC BY-NC-SA 4.0 (nur nicht-kommerzielle Nutzung; Namensnennung und Weitergabe unter gleicher Lizenz). ATP/WTA-Haupttour-Abdeckung; Challenger/ITF derzeit nicht vollständig enthalten.</section>
 <section class="diag"><details><summary>Datenquellen & Diagnose</summary><pre id="diagnostics">Noch kein Abruf.</pre></details></section>

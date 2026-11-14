@@ -106,3 +106,16 @@ VERSION 1.3.0 – 1X2-SCHWELLE AUF 65 %
 - Maximal 7 Tipps je Suchlauf bleiben unverändert.
 - Fußball X1/X2 bleibt bei mindestens 60 %; Tennis und alle übrigen Datenquellen, Filter und Funktionen bleiben unverändert.
 - Die Diagnose weist für 1X2 nun ausdrücklich die 65-%-Schwelle aus.
+
+
+VERSION 1.3.1 – PERFORMANCE-ERWEITERUNG (BETA)
+- Neue Performance-Ansicht für Fußball 1X2, Fußball X1/X2 und Tennis.
+- Anmeldung per E-Mail/Passwort; dasselbe Konto auf Handy und PC verwenden.
+- Nach einem Suchlauf werden die angezeigten Tipps in Supabase gespeichert.
+- Quote, Einsatz und Ergebnis können manuell ergänzt/korrigiert werden.
+- Trefferquote, Gewinn/Verlust und ROI werden aus abgeschlossenen Tipps berechnet.
+- Supabase-Tabelle wird mit supabase_setup.sql im SQL Editor eingerichtet; RLS beschränkt Datensätze auf das jeweilige Benutzerkonto.
+- Automatische Ergebnisermittlung ist in dieser Version NICHT enthalten; Ergebnisse müssen manuell gesetzt werden.
+- OneDrive-Backup ist noch nicht integriert.
+- Tippquellen, Tippfilter und Prognoseberechnungen wurden nicht geändert.
+- Vor Live-Einsatz mit Testtipps prüfen.

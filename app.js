@@ -3,6 +3,9 @@ const TENNIS_API='https://api.tipero.app/api/picks/';
 const ESPN_ATP='https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard';
 const ESPN_WTA='https://site.api.espn.com/apis/site/v2/sports/tennis/wta/scoreboard';
 const TZ='Europe/Vienna', MIN_MAIN=65, MIN_DC=60, MAX=7;
+const SB_URL='https://wxqbfvskzabyqdigknon.supabase.co';
+const SB_KEY='sb_publishable_La06T4Qp35bL4sL5TTfKVw_R-Vu4PSp';
+let sbSession=null, latestPicks=[];
 const $=id=>document.getElementById(id);
 function nowVienna(){return new Date(new Date().toLocaleString('en-US',{timeZone:TZ}))}
 function dateKey(d){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(d)}
@@ -383,7 +386,7 @@ function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function eligible(arr){return dedupe(arr).filter(x=>isUpcoming(x.kickoff)).slice(0,MAX)}
 async function search(){
  let b=$('searchBtn');b.disabled=true;b.textContent='Suche läuft …';$('status').className='status';$('status').textContent='Datenquellen werden abgefragt …';
- let diag=[`Abruf: ${new Date().toLocaleString('de-AT',{timeZone:TZ})}`],main=[],dc=[],tennis=[];
+ let diag=[`Abruf: ${new Date().toLocaleString('de-AT',{timeZone:TZ})}`],main=[],dc=[],tennis=[]; latestPicks=[];
  try{
   let r=await fetch(API,{headers:{Accept:'application/json'}});
   if(!r.ok)throw Error('TipsAudit HTTP '+r.status);
@@ -406,6 +409,8 @@ async function search(){
     $('tennisCount').textContent=tennis.length;
     diag.push(`Tennis-Tipps gesamt: ${tennis.length}/5 (eigenes Modell=${own.length}, TIPERO öffentlich=${publicTips.length})`);
     $('status').textContent=`Suchlauf abgeschlossen: ${fm.length} Fußballtipps, ${fd.length} X1/X2-Tipps, ${tennis.length} Tennistipps und ${fixtures.length} Spielplan-Einträge.`;
+    latestPicks=[...fm.map(x=>({...x,sport:'Fußball',market:'1X2'})),...fd.map(x=>({...x,sport:'Fußball',market:'X1/X2'})),...tennis.map(x=>({...x,sport:'Tennis',market:'Einzel'}))];
+    if(sbSession){try{const saved=await saveTips(latestPicks);diag.push(`Performance: ${saved} Tipps in Supabase gespeichert/aktualisiert.`)}catch(err){diag.push('Performance-Speicherung FEHLER: '+err.message)}}
   }catch(e){
     render('tennisList',[],'Eigenes Tennis-Modell derzeit nicht verfügbar. Bitte Diagnose prüfen.');
     $('tennisCount').textContent='0';
@@ -422,3 +427,26 @@ async function search(){
 $('searchBtn').addEventListener('click',search);document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab,.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.tab).classList.add('active')}));
 function clock(){$('clock').textContent=new Intl.DateTimeFormat('de-AT',{timeZone:TZ,dateStyle:'short',timeStyle:'short'}).format(new Date())}clock();setInterval(clock,30000);
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+
+
+// Performance-Erweiterung v1.3.1 – getrennt von den Tippberechnungen.
+const SB_STORE='surebet_sb_session_v1';
+function authHeaders(token){return {'apikey':SB_KEY,'Authorization':'Bearer '+(token||SB_KEY),'Content-Type':'application/json'}}
+function setAuthMessage(msg,isError=false){const el=$('authMessage');if(el){el.textContent=msg;el.style.color=isError?'#fca5a5':'#94a3b8'}}
+async function sbAuth(path,body){const r=await fetch(SB_URL+'/auth/v1/'+path,{method:'POST',headers:authHeaders(),body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.msg||j.message||j.error_description||'Anmeldung fehlgeschlagen (HTTP '+r.status+')');return j}
+function storeSession(s){if(s?.expires_in&&!s.expires_at)s.expires_at=Math.floor(Date.now()/1000)+Number(s.expires_in);sbSession=s; if(s)localStorage.setItem(SB_STORE,JSON.stringify(s));else localStorage.removeItem(SB_STORE); updateAuthUI()}
+async function restoreSession(){try{const raw=localStorage.getItem(SB_STORE);if(!raw)return;let s=JSON.parse(raw);if(s.expires_at && s.expires_at*1000<Date.now()+60000){const j=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:authHeaders(),body:JSON.stringify({refresh_token:s.refresh_token})});const v=await j.json();if(!j.ok)throw Error('Sitzung abgelaufen');s={...v,expires_at:Math.floor(Date.now()/1000)+(v.expires_in||3600)}}storeSession(s);await loadPerformance()}catch(e){storeSession(null);setAuthMessage('Bitte erneut anmelden: '+e.message,true)}}
+function updateAuthUI(){const logged=!!sbSession?.access_token;$('authBox').hidden=logged;$('perfArea').hidden=!logged;if(logged)$('signedInAs').textContent=sbSession.user?.email||'Angemeldet'}
+async function sbRequest(path,opts={}){if(!sbSession?.access_token)throw Error('Nicht angemeldet');const r=await fetch(SB_URL+'/rest/v1/'+path,{...opts,headers:{...authHeaders(sbSession.access_token),Prefer:opts.prefer||'return=representation',...(opts.headers||{})}});const t=await r.text();let j;try{j=t?JSON.parse(t):[]}catch{j=t}if(!r.ok)throw Error((j?.message||j?.hint||t||'Datenbankfehler')+' (HTTP '+r.status+')');return j}
+function makeTipKey(x){return [x.sport,x.market,x.kickoff||'',teamKey(x.home),teamKey(x.away),x.pick].join('|').toLowerCase()}
+async function saveTips(arr){let rows=arr.map(x=>({tip_key:makeTipKey(x),sport:x.sport,market:x.market,league:x.league||'',home:x.home||'',away:x.away||'',kickoff:x.kickoff||null,pick:x.pick||'',probability:Number(x.prob)||null,source:x.source||'',status:'pending'}));if(!rows.length)return 0;let saved=0;for(let i=0;i<rows.length;i+=50){const batch=rows.slice(i,i+50);await sbRequest('performance_tips?on_conflict=user_id,tip_key',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(batch)});saved+=batch.length}return saved}
+function euro(n){return Number.isFinite(n)?new Intl.NumberFormat('de-AT',{style:'currency',currency:'EUR'}).format(n):'—'}
+async function loadPerformance(){const rows=await sbRequest('performance_tips?select=*&order=created_at.desc&limit=500');const done=rows.filter(x=>x.status==='won'||x.status==='lost');const won=done.filter(x=>x.status==='won').length;const stakes=done.reduce((a,x)=>a+(Number(x.stake)||0),0);const profit=done.reduce((a,x)=>a+(x.status==='won'?(Number(x.stake)||0)*((Number(x.odds)||0)-1):-(Number(x.stake)||0)),0);$('mSettled').textContent=done.length;$('mHit').textContent=done.length?(won/done.length*100).toFixed(1)+' %':'—';$('mProfit').textContent=stakes?euro(profit):'—';$('mRoi').textContent=stakes?(profit/stakes*100).toFixed(1)+' %':'—';const el=$('perfList');el.className='cards'+(rows.length?'':' empty');if(!rows.length){el.textContent='Noch keine gespeicherten Tipps. Starte einen Suchlauf.';return}el.innerHTML=rows.map(x=>`<article class="tip"><div class="tiptop"><span class="league">${esc(x.sport)} · ${esc(x.market)}</span><span>${x.kickoff?fmt(x.kickoff):'Termin offen'}</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="pickrow"><span class="pick">${esc(x.pick)}</span><span class="prob">${x.probability?Number(x.probability).toFixed(1)+' %':''}</span></div><div class="meta">${esc(x.league)} · ${esc(x.source)} · Status: ${esc(x.status)}</div><div class="tipcontrols"><label>Quote<input type="number" min="1.01" step="0.01" id="odds-${x.id}" value="${x.odds??''}" placeholder="z. B. 1.80"></label><label>Einsatz €<input type="number" min="0" step="0.50" id="stake-${x.id}" value="${x.stake??''}" placeholder="z. B. 10"></label><label>Ergebnis<select id="result-${x.id}"><option value="pending" ${x.status==='pending'?'selected':''}>Offen</option><option value="won" ${x.status==='won'?'selected':''}>Gewonnen</option><option value="lost" ${x.status==='lost'?'selected':''}>Verloren</option><option value="void" ${x.status==='void'?'selected':''}>Storniert</option></select></label><button onclick="saveTipResult('${x.id}')">Speichern</button></div></article>`).join('')}
+window.saveTipResult=async function(id){try{const odds=Number($('odds-'+id).value)||null,stake=Number($('stake-'+id).value)||null,status=$('result-'+id).value;if(odds!==null&&odds<1.01)throw Error('Quote muss mindestens 1,01 sein');if(stake!==null&&stake<0)throw Error('Einsatz darf nicht negativ sein');await sbRequest('performance_tips?id=eq.'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({odds,stake,status,settled_at:status==='pending'?null:new Date().toISOString()})});await loadPerformance()}catch(e){alert('Speichern nicht möglich: '+e.message)}};
+async function authAction(which){try{const email=$('authEmail').value.trim(),password=$('authPassword').value;if(!email||!password)throw Error('Bitte E-Mail und Passwort eingeben.');if(password.length<8)throw Error('Passwort muss mindestens 8 Zeichen haben.');setAuthMessage('Bitte warten …');const j=await sbAuth(which,{email,password});if(which==='signup'&&!j.access_token){setAuthMessage('Konto angelegt. Bitte E-Mail bestätigen und danach anmelden.');return}storeSession(j);setAuthMessage('Erfolgreich angemeldet.');await loadPerformance();if(latestPicks.length)await saveTips(latestPicks)}catch(e){setAuthMessage(e.message,true)}}
+$('signInBtn')?.addEventListener('click',()=>authAction('token?grant_type=password'));
+$('signUpBtn')?.addEventListener('click',()=>authAction('signup'));
+$('signOutBtn')?.addEventListener('click',async()=>{try{await fetch(SB_URL+'/auth/v1/logout',{method:'POST',headers:authHeaders(sbSession?.access_token)});}finally{storeSession(null);setAuthMessage('Abgemeldet.')}});
+$('refreshPerfBtn')?.addEventListener('click',()=>loadPerformance().catch(e=>setAuthMessage(e.message,true)));
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.tab==='performance'&&sbSession)loadPerformance().catch(e=>setAuthMessage(e.message,true))}));
+restoreSession();
