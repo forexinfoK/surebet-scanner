@@ -44,8 +44,19 @@ VERSION 1.2.1 – TENNIS-ABRUF KORRIGIERT
 - Offizielle TIPERO-Dokumentation beschreibt den öffentlichen API-Zugriff als CORS-fähig und dokumentiert den tagesgenauen Endpoint.
 
 
-VERSION 1.2.2 – TENNIS-DIAGNOSE UND DATENSTRUKTUR
+VERSION 1.2.3 – DETAILLIERTE TENNIS-API-DIAGNOSE
 - ESPN-Spielplan liest Gruppenspiele aus events[].groupings[].competitions[] und berücksichtigt die Einzel-/Doppel-Gruppenbezeichnung.
 - TIPERO wird über den dokumentierten Tages-Endpunkt /api/picks/YYYY-MM-DD abgefragt.
 - Diagnose protokolliert je ATP/WTA Turnier- und Matchzahlen, den TIPERO-Abfragetag, Antwortstatus und konkrete HTTP-/Netzwerkfehler.
 - Fußballbereiche und Fußballfilter wurden nicht geändert.
+
+
+VERSION 1.2.3 – DETAILLIERTE TENNIS-API-DIAGNOSE
+- Protokolliert für TIPERO, ESPN ATP und ESPN WTA HTTP-Status, Antworttyp, Antwortgröße und Laufzeit.
+- Zeigt eine kurze Antwortvorschau und JSON-/Netzwerkfehler an (einschließlich typischer CORS-/Browserblockaden).
+- ATP und WTA werden unabhängig voneinander ausgewertet; ein Fehler bei einer Quelle verhindert die andere nicht.
+- Zeigt TIPERO-Struktur, Pick-Anzahl und Filter-Zwischenergebnisse.
+- Diagnosezeilen werden korrekt mit Zeilenumbrüchen dargestellt.
+- Fußballlogik und Fußballfilter wurden nicht geändert.
+
+UPDATE: Alle Dateien aus diesem Ordner gemeinsam in GitHub hochladen und bestehende Dateien ersetzen.

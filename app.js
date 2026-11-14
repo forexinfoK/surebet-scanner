@@ -39,15 +39,41 @@ function tennisPicks(payload,diag){
     if(seen.has(k)) return false; seen.add(k); return true;
   }).slice(0,5);
 }
+async function diagnosticJson(url,label,diag){
+  const started=performance.now();
+  let response;
+  try{
+    response=await fetch(url,{headers:{Accept:'application/json'}});
+  }catch(e){
+    const kind=e instanceof TypeError?'Netzwerk/CORS/Browserblockade':'Fetch-Fehler';
+    diag.push(`${label}: FEHLER ${kind}: ${e.message||String(e)} (${Math.round(performance.now()-started)} ms)`);
+    throw new Error(`${label}: ${kind} – ${e.message||String(e)}`);
+  }
+  const elapsed=Math.round(performance.now()-started);
+  const contentType=response.headers.get('content-type')||'(kein Content-Type)';
+  const text=await response.text();
+  const preview=text.replace(/\s+/g,' ').slice(0,220)||'(leerer Antworttext)';
+  diag.push(`${label}: HTTP ${response.status} ${response.statusText||''}; ${contentType}; ${elapsed} ms; ${text.length} Zeichen`);
+  diag.push(`${label} Antwortvorschau: ${preview}`);
+  if(!response.ok) throw new Error(`${label}: HTTP ${response.status} ${response.statusText}`);
+  try{return JSON.parse(text)}catch(e){
+    diag.push(`${label}: JSON-Fehler: ${e.message}`);
+    throw new Error(`${label}: Antwort ist kein gültiges JSON`);
+  }
+}
 async function fetchTennis(diag){
   const day=dateKey(new Date());
   const url=TENNIS_API+day;
-  diag.push('TIPERO Abfrage: '+url);
-  const r=await fetch(url,{headers:{Accept:'application/json'}});
-  if(!r.ok) throw Error('TIPERO HTTP '+r.status);
-  const payload=await r.json();
-  diag.push('TIPERO Antwort: ok=' + String(payload?.ok ?? 'nicht angegeben') + ', match_date=' + String(payload?.run?.match_date ?? day));
-  return tennisPicks(payload,diag);
+  diag.push('TIPERO URL: '+url);
+  const payload=await diagnosticJson(url,'TIPERO',diag);
+  diag.push('TIPERO Struktur: '+Object.keys(payload||{}).slice(0,20).join(', '));
+  diag.push('TIPERO Antwortstatus: ok=' + String(payload?.ok ?? 'nicht angegeben') + ', match_date=' + String(payload?.run?.match_date ?? day));
+  const picks=Array.isArray(payload?.picks)?payload.picks:[];
+  diag.push(`TIPERO Picks im JSON: ${picks.length}; Laufdatum=${day}`);
+  const result=tennisPicks(payload,diag);
+  diag.push(`TIPERO nach Filter: ${result.length}; geprüft=${picks.length}; öffentlich=${picks.filter(x=>x?.source_type==='public').length}; gesperrt=${picks.filter(x=>Number(x?.is_locked)===1).length}; Datum passend=${picks.filter(x=>String(x?.match_date||'')===day).length}; Confidence >=60=${picks.filter(x=>Number(x?.confidence)>=60).length}`);
+  if(!picks.length && payload && typeof payload==='object') diag.push('TIPERO Hinweis: Antwort enthält kein Array "picks" oder dieses ist leer.');
+  return result;
 }
 
 function espnFixtures(payload,tour,diag){
@@ -87,14 +113,30 @@ function espnFixtures(payload,tour,diag){
 async function fetchTennisFixtures(diag){
   const date=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()).replaceAll('-','');
   const urls=[ESPN_ATP,ESPN_WTA].map(u=>u+'?dates='+date+'&limit=300');
-  const results=await Promise.all(urls.map(async (url)=>{const r=await fetch(url,{headers:{Accept:'application/json'}});if(!r.ok)throw Error('ESPN HTTP '+r.status+' '+url);return r.json()}));
-  const matches=[...espnFixtures(results[0],'ATP',diag),...espnFixtures(results[1],'WTA',diag)];
+  const labels=['ESPN ATP','ESPN WTA'];
+  const settled=await Promise.allSettled(urls.map((url,i)=>diagnosticJson(url,labels[i],diag)));
+  const matches=[];
+  for(let i=0;i<settled.length;i++){
+    const item=settled[i];
+    if(item.status==='rejected'){
+      diag.push(`${labels[i]} Ergebnis: NICHT VERFÜGBAR – ${item.reason?.message||item.reason}`);
+      continue;
+    }
+    const payload=item.value;
+    const events=Array.isArray(payload?.events)?payload.events:[];
+    diag.push(`${labels[i]} Struktur: keys=${Object.keys(payload||{}).slice(0,16).join(', ')}; events=${events.length}`);
+    if(events.length) diag.push(`${labels[i]} erstes Event: keys=${Object.keys(events[0]||{}).join(', ')}; groupings=${Array.isArray(events[0]?.groupings)?events[0].groupings.length:0}; direkte competitions=${Array.isArray(events[0]?.competitions)?events[0].competitions.length:0}`);
+    const before=matches.length;
+    matches.push(...espnFixtures(payload,i===0?'ATP':'WTA',diag));
+    diag.push(`${labels[i]} Ergebnis: ${matches.length-before} kommende Einzelspiele`);
+  }
   const unique=new Map();
   for(const m of matches){const k=[teamKey(m.home),teamKey(m.away),m.kickoff].join('|');unique.set(k,m)}
   const out=[...unique.values()].sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
-  diag.push(`ESPN Spielplan gesamt: ${out.length} kommende Einzelspiele`);
+  diag.push(`ESPN Spielplan gesamt: ${out.length} kommende Einzelspiele (Datum ${date})`);
   return out;
 }
+
 function renderFixtures(arr){
   const el=$('tennisFixtures');
   el.className='cards'+(arr.length?'':' empty');
@@ -136,7 +178,7 @@ async function search(){
   $('status').className='status error';$('status').textContent='Fußball-Abruf nicht möglich: '+e.message+'. Tennis wird bei einem erfolgreichen Fußballabruf separat geladen.';
   diag.push('FEHLER: '+e.message,'Wenn CORS blockiert, ist ein kleiner sicherer API-Proxy erforderlich.');
  }finally{
-  $('diagnostics').textContent=diag.join('\\n');b.disabled=false;b.textContent='Jetzt suchen';
+  $('diagnostics').textContent=diag.join('\n');b.disabled=false;b.textContent='Jetzt suchen';
  }
 }
 $('searchBtn').addEventListener('click',search);document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab,.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.tab).classList.add('active')}));
