@@ -42,3 +42,10 @@ VERSION 1.2.1 – TENNIS-ABRUF KORRIGIERT
 - Diagnose zeigt getrennt die Zahl der ESPN-Turniere und Matches in Gruppen sowie den TIPERO-Datentag.
 - Service Worker hat eine neue Cache-Version und entfernt alte Surebet-App-Caches beim Aktivieren.
 - Offizielle TIPERO-Dokumentation beschreibt den öffentlichen API-Zugriff als CORS-fähig und dokumentiert den tagesgenauen Endpoint.
+
+
+VERSION 1.2.2 – TENNIS-DIAGNOSE UND DATENSTRUKTUR
+- ESPN-Spielplan liest Gruppenspiele aus events[].groupings[].competitions[] und berücksichtigt die Einzel-/Doppel-Gruppenbezeichnung.
+- TIPERO wird über den dokumentierten Tages-Endpunkt /api/picks/YYYY-MM-DD abgefragt.
+- Diagnose protokolliert je ATP/WTA Turnier- und Matchzahlen, den TIPERO-Abfragetag, Antwortstatus und konkrete HTTP-/Netzwerkfehler.
+- Fußballbereiche und Fußballfilter wurden nicht geändert.

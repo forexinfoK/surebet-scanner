@@ -1,5 +1,5 @@
 const API='https://tipsaudit.com/api/v1/predictions', SKOR='https://skorbot.live/api/v1/matches.json';
-const TENNIS_API='https://api.tipero.app/api/latest';
+const TENNIS_API='https://api.tipero.app/api/picks/';
 const ESPN_ATP='https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard';
 const ESPN_WTA='https://site.api.espn.com/apis/site/v2/sports/tennis/wta/scoreboard';
 const TZ='Europe/Vienna', MIN=60, MAX=7;
@@ -40,40 +40,59 @@ function tennisPicks(payload,diag){
   }).slice(0,5);
 }
 async function fetchTennis(diag){
-  const r=await fetch(TENNIS_API,{headers:{Accept:'application/json'}});
+  const day=dateKey(new Date());
+  const url=TENNIS_API+day;
+  diag.push('TIPERO Abfrage: '+url);
+  const r=await fetch(url,{headers:{Accept:'application/json'}});
   if(!r.ok) throw Error('TIPERO HTTP '+r.status);
-  return tennisPicks(await r.json(),diag);
+  const payload=await r.json();
+  diag.push('TIPERO Antwort: ok=' + String(payload?.ok ?? 'nicht angegeben') + ', match_date=' + String(payload?.run?.match_date ?? day));
+  return tennisPicks(payload,diag);
 }
 
-function espnFixtures(payload,tour){
+function espnFixtures(payload,tour,diag){
   const events=Array.isArray(payload?.events)?payload.events:[];
-  const out=[];
+  const out=[]; let grouped=0, rawMatches=0;
   for(const event of events){
-    const competitions=Array.isArray(event.competitions)?event.competitions:[];
-    for(const c of competitions){
+    const groups=Array.isArray(event.groupings)?event.groupings:[];
+    const entries=[];
+    for(const g of groups){
+      const groupName=String(g.grouping?.displayName||g.name||'');
+      const comps=Array.isArray(g.competitions)?g.competitions:[];
+      grouped+=comps.length;
+      if(/double/i.test(groupName)) continue;
+      for(const c of comps) entries.push({c,groupName});
+    }
+    // Fallback for ESPN responses that expose competitions directly.
+    if(!entries.length && Array.isArray(event.competitions))
+      for(const c of event.competitions) entries.push({c,groupName:''});
+    for(const {c,groupName} of entries){
+      rawMatches++;
       const status=String(c.status?.type?.state||'').toLowerCase();
-      if(status==='post'||status==='in') continue;
-      const competitors=Array.isArray(c.competitors)?c.competitors:[];
-      const names=competitors.map(v=>v.athlete?.displayName||v.athlete?.fullName||v.displayName||'').filter(Boolean);
-      if(names.length<2) continue;
+      if(['post','in'].includes(status)) continue;
+      const competitors=Array.isArray(c.competitors)?[...c.competitors]:[];
+      competitors.sort((a,b)=>{const oa=a.order!=null?Number(a.order):(a.homeAway==='home'?0:1);const ob=b.order!=null?Number(b.order):(b.homeAway==='home'?0:1);return oa-ob;});
+      const names=competitors.map(v=>v.athlete?.displayName||v.athlete?.fullName||v.displayName||v.name||'').filter(Boolean);
+      if(names.length<2 || /double/i.test(groupName) || names.some(n=>n.includes('/'))) continue;
       const start=c.date||c.startDate||event.date||null;
       if(!start || !isUpcoming(start)) continue;
       const type=String(c.type?.text||c.type?.slug||'');
-      if(type.toLowerCase().includes('double') || names.some(n=>n.includes('/'))) continue;
-      out.push({home:names[0],away:names[1],league:[tour,event.name,c.venue?.fullName].filter(Boolean).join(' · '),kickoff:start,pick:'Spielplan – keine Tippempfehlung',prob:null,source:'ESPN Spielplan'});
+      if(/double/i.test(type)) continue;
+      out.push({home:names[0],away:names[1],league:[tour,event.name,groupName,c.round?.displayName].filter(Boolean).join(' · '),kickoff:start,pick:'Spielplan – keine Tippempfehlung',prob:null,source:'ESPN Spielplan'});
     }
   }
+  if(diag) diag.push(`ESPN ${tour}: ${events.length} Turniere, ${grouped} Gruppenspiele, ${rawMatches} geprüfte Matches`);
   return out;
 }
 async function fetchTennisFixtures(diag){
   const date=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()).replaceAll('-','');
   const urls=[ESPN_ATP,ESPN_WTA].map(u=>u+'?dates='+date+'&limit=300');
-  const results=await Promise.all(urls.map(async (url)=>{const r=await fetch(url,{headers:{Accept:'application/json'}});if(!r.ok)throw Error('ESPN HTTP '+r.status);return r.json()}));
-  const matches=[...espnFixtures(results[0],'ATP'),...espnFixtures(results[1],'WTA')];
+  const results=await Promise.all(urls.map(async (url)=>{const r=await fetch(url,{headers:{Accept:'application/json'}});if(!r.ok)throw Error('ESPN HTTP '+r.status+' '+url);return r.json()}));
+  const matches=[...espnFixtures(results[0],'ATP',diag),...espnFixtures(results[1],'WTA',diag)];
   const unique=new Map();
   for(const m of matches){const k=[teamKey(m.home),teamKey(m.away),m.kickoff].join('|');unique.set(k,m)}
   const out=[...unique.values()].sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
-  diag.push(`ESPN Spielplan: ${out.length} kommende Einzelspiele (ATP/WTA)`);
+  diag.push(`ESPN Spielplan gesamt: ${out.length} kommende Einzelspiele`);
   return out;
 }
 function renderFixtures(arr){
