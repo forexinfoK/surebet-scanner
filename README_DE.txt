@@ -33,3 +33,12 @@ VERSION 1.2.0 – TENNIS-DATENABGLEICH
 - Es werden keine eigenen Gewinnwahrscheinlichkeiten aus bloßen Spielplan-Daten erfunden. Ohne belastbares Modell erscheint ein Match nur als Spielplan-Eintrag, nicht als Wett-Tipp.
 - ESPN-Abdeckung kann Challenger-/ITF-Turniere unvollständig enthalten; ein leerer ESPN-Spielplan beweist daher nicht, dass weltweit keine Tennisspiele stattfinden.
 - Fußball 1X2 und X1/X2 bleiben unverändert.
+
+
+VERSION 1.2.1 – TENNIS-ABRUF KORRIGIERT
+- TIPERO wird tagesgenau über /api/picks/YYYY-MM-DD abgefragt statt über den allgemeinen Latest-Endpunkt.
+- ESPN-Tennis-Spielplan liest nun die tatsächliche Struktur events[].groupings[].competitions[] aus; direkte competitions bleiben als Fallback unterstützt.
+- Spieler werden anhand der ESPN-Reihenfolge sortiert; Einzel-/Doppel-Erkennung und Statusfilter bleiben aktiv.
+- Diagnose zeigt getrennt die Zahl der ESPN-Turniere und Matches in Gruppen sowie den TIPERO-Datentag.
+- Service Worker hat eine neue Cache-Version und entfernt alte Surebet-App-Caches beim Aktivieren.
+- Offizielle TIPERO-Dokumentation beschreibt den öffentlichen API-Zugriff als CORS-fähig und dokumentiert den tagesgenauen Endpoint.
