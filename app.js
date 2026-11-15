@@ -378,109 +378,7 @@ function renderFixtures(arr){
   el.innerHTML=arr.map(x=>`<article class="tip"><div class="tiptop"><span class="league">${esc(x.league)}</span><span>${fmt(x.kickoff)} Uhr</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="meta">Spielplan-Eintrag · keine eigene Gewinnwahrscheinlichkeit</div><span class="source">${esc(x.source)}</span></article>`).join('');
 }
 
-function render(id,arr,empty,category){
- let el=$(id);el.className='cards'+(arr.length?'':' empty');
- if(!arr.length){el.textContent=empty;return}
- el.innerHTML=arr.map(x=>{
-  const rid=trackedId(category,x),saved=readTracked().some(r=>r.id===rid);
-  return `<article class="tip"><div class="tiptop"><span class="league">${esc(x.league)}</span><span>${x.kickoff?fmt(x.kickoff)+' Uhr':'Beginn nicht angegeben'}</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="pickrow"><span class="pick">${esc(x.pick)}</span><span class="prob">${x.prob.toFixed(1)} %</span></div>${x.odds?`<div class="meta">Erfasste Quote: ${x.odds.toFixed(2)}</div>`:''}${x.modelInfo?`<div class="meta">${esc(x.modelInfo)}</div>`:''}<span class="source">${esc(x.source)}</span>
-  <button class="save-tip-btn ${saved?'saved':''}" type="button" data-save-tip="${esc(rid)}" data-category="${esc(category)}" data-tip="${encodeURIComponent(JSON.stringify(x))}" ${saved?'disabled':''}>${saved?'✓ Bereits übernommen':'＋ Ich habe diesen Tipp gespielt'}</button></article>`;
- }).join('');
-}
-const TRACK_KEY='surebet_scanner_tip_history_v2';
-const SB_CONFIG_KEY='surebet_scanner_supabase_config_v1';
-// Supabase-Projektkonfiguration (Publishable Key ist für die Browser-App vorgesehen).
-const SB_DEFAULT_CONFIG={url:'https://lenrasytspoltdcmnqdq.supabase.co',key:'sb_publishable_EF3q5GMh_ws8e77MesJJaQ_xYv67HMu'};
-let supabaseClient=null, supabaseUser=null;
-function readTracked(){try{return JSON.parse(localStorage.getItem(TRACK_KEY)||'[]')}catch(e){return []}}
-function writeTracked(rows){localStorage.setItem(TRACK_KEY,JSON.stringify(rows));}
-function trackedId(category,x){return [category,x.kickoff||x.matchDate||'',teamKey(x.home),teamKey(x.away),x.pick||'',x.source||''].join('::')}
-function rowFromTip(category,x){return {id:trackedId(category,x),category,home:x.home,away:x.away,league:x.league||'',kickoff:x.kickoff||'',pick:x.pick||'',prob:Number(x.prob)||null,source:x.source||'',status:'Offen',pnl:null,updated_at:new Date().toISOString()}}
-function saveLocalRow(row){const rows=readTracked(),i=rows.findIndex(v=>v.id===row.id);if(i<0)rows.push(row);else rows[i]={...rows[i],...row};writeTracked(rows)}
-function setSyncStatus(message,isError=false){const el=$('syncStatus');if(el){el.textContent=message;el.className='sync-status'+(isError?' error':'')}}
-function getSupabaseConfig(){try{return {...SB_DEFAULT_CONFIG,...JSON.parse(localStorage.getItem(SB_CONFIG_KEY)||'{}')}}catch(e){return {...SB_DEFAULT_CONFIG}}}
-function saveSupabaseConfig(){const cfg={url:$('sbUrl').value.trim().replace(/\/$/,''),key:$('sbKey').value.trim()};if(!cfg.url||!cfg.key){setSyncStatus('Bitte Projekt-URL und Publishable-/Anon-Key eingeben.',true);return}localStorage.setItem(SB_CONFIG_KEY,JSON.stringify(cfg));initSupabase();}
-async function initSupabase(){
- const cfg=getSupabaseConfig();
- if(!cfg.url||!cfg.key||!window.supabase?.createClient){setSyncStatus('Supabase noch nicht eingerichtet. Tipps werden vorerst nur auf diesem Gerät gespeichert.');return}
- try{
-  supabaseClient=window.supabase.createClient(cfg.url,cfg.key);
-  const {data:{session}}=await supabaseClient.auth.getSession();
-  supabaseUser=session?.user||null;
-  if(supabaseUser){$('sbAuthForm').hidden=true;$('sbLoggedIn').hidden=false;$('sbUserLabel').textContent=supabaseUser.email||'Angemeldet';await loadRemoteTips();setSyncStatus('Mit Supabase verbunden · Daten synchronisiert.');}
-  else { $('sbAuthForm').hidden=false;$('sbLoggedIn').hidden=true;setSyncStatus('Supabase-Projekt gespeichert. Bitte mit deinem Konto anmelden oder ein Konto erstellen.'); }
-  supabaseClient.auth.onAuthStateChange((_event,session)=>{supabaseUser=session?.user||null;if(supabaseUser){$('sbAuthForm').hidden=true;$('sbLoggedIn').hidden=false;$('sbUserLabel').textContent=supabaseUser.email||'Angemeldet';setTimeout(()=>loadRemoteTips(),0);setSyncStatus('Mit Supabase verbunden · Synchronisierung läuft.')}else{$('sbAuthForm').hidden=false;$('sbLoggedIn').hidden=true;setSyncStatus('Nicht angemeldet.')}});
- }catch(e){setSyncStatus('Supabase-Verbindung fehlgeschlagen: '+e.message,true)}
-}
-async function authSupabase(mode){
- if(!supabaseClient){setSyncStatus('Bitte zuerst Supabase-URL und Key speichern.',true);return}
- const email=$('sbEmail').value.trim(),password=$('sbPassword').value;
- if(!email||!password){setSyncStatus('Bitte E-Mail und Passwort eingeben.',true);return}
- setSyncStatus('Anmeldung wird durchgeführt …');
- const result=mode==='signup'?await supabaseClient.auth.signUp({email,password}):await supabaseClient.auth.signInWithPassword({email,password});
- if(result.error){setSyncStatus(result.error.message,true);return}
- if(mode==='signup'&&!result.data.session){setSyncStatus('Konto erstellt. Bitte bestätige zuerst die E-Mail-Adresse und melde dich danach an.');return}
- supabaseUser=result.data.user;await loadRemoteTips();$('sbAuthForm').hidden=true;$('sbLoggedIn').hidden=false;$('sbUserLabel').textContent=supabaseUser.email||'Angemeldet';setSyncStatus('Angemeldet · Supabase-Synchronisierung aktiv.');
-}
-async function loadRemoteTips(){
- if(!supabaseClient||!supabaseUser)return;
- const {data,error}=await supabaseClient.from('surebet_tips').select('*').order('kickoff',{ascending:false});
- if(error){setSyncStatus('Datenbankfehler: '+error.message+' · SQL-Einrichtung prüfen.',true);return}
- const remote=(data||[]).map(r=>({...r,updatedAt:r.updated_at}));
- const remoteIds=new Set(remote.map(r=>r.id));
- const local=readTracked();
- const merged=[...remote,...local.filter(r=>!remoteIds.has(r.id))];
- writeTracked(merged);
- const pending=local.filter(r=>!remoteIds.has(r.id));
- if(pending.length){const payload=pending.map(r=>{const v={...r,user_id:supabaseUser.id};delete v.updatedAt;return v});const up=await supabaseClient.from('surebet_tips').upsert(payload,{onConflict:'id,user_id'});if(up.error)setSyncStatus('Lokale Tipps geladen, Cloud-Übertragung noch offen: '+up.error.message,true)}
- renderStats();refreshSaveButtons();
-}
-function refreshSaveButtons(){document.querySelectorAll('[data-save-tip]').forEach(b=>{const saved=readTracked().some(r=>r.id===b.dataset.saveTip);b.disabled=saved;b.classList.toggle('saved',saved);b.textContent=saved?'✓ Bereits übernommen':'＋ Ich habe diesen Tipp gespielt';});}
-async function saveSelectedTip(btn){
- const category=btn.dataset.category,x=JSON.parse(decodeURIComponent(btn.dataset.tip)),row=rowFromTip(category,x);
- if(readTracked().some(r=>r.id===row.id))return;
- saveLocalRow(row);renderStats();refreshSaveButtons();
- if(supabaseClient&&supabaseUser){const payload={...row,user_id:supabaseUser.id};const {error}=await supabaseClient.from('surebet_tips').upsert(payload,{onConflict:'id,user_id'});if(error){setSyncStatus('Lokal gespeichert, Supabase-Synchronisierung fehlgeschlagen: '+error.message,true);return}setSyncStatus('Tipp übernommen und mit Supabase synchronisiert.');}
- else setSyncStatus('Tipp übernommen. Sobald Supabase verbunden ist, kannst du ihn synchronisieren.');
-}
-async function updateTracked(id,patch){
- const rows=readTracked(),i=rows.findIndex(x=>x.id===id);if(i<0)return;
- rows[i]={...rows[i],...patch,updated_at:new Date().toISOString(),updatedAt:new Date().toISOString()};writeTracked(rows);renderStats();
- if(supabaseClient&&supabaseUser){const row=rows[i],payload={...row,user_id:supabaseUser.id};delete payload.updatedAt;const {error}=await supabaseClient.from('surebet_tips').upsert(payload,{onConflict:'id,user_id'});if(error)setSyncStatus('Änderung lokal gespeichert, aber nicht synchronisiert: '+error.message,true);}
-}
-function euro(v){return Number(v||0).toLocaleString('de-AT',{style:'currency',currency:'EUR'});}
-function statsFor(rows){
- const closed=rows.filter(x=>x.status==='Gewonnen'||x.status==='Verloren');
- const wins=rows.filter(x=>x.status==='Gewonnen').length,losses=rows.filter(x=>x.status==='Verloren').length;
- return {total:rows.length,wins,losses,open:rows.filter(x=>x.status==='Offen').length,cancelled:rows.filter(x=>x.status==='Storniert').length,hit:closed.length?wins/closed.length:0,pnl:rows.reduce((s,x)=>s+(Number(x.pnl)||0),0)};
-}
-function renderStats(){
- const rows=readTracked(),s=statsFor(rows);
- $('trackedCount').textContent=rows.length+' Einträge';
- const cards=[['Tipps gesamt',s.total],['Gewonnen',s.wins],['Verloren',s.losses],['Trefferquote',(s.hit*100).toFixed(1)+' %'],['Offen',s.open],['Gewinn / Verlust',euro(s.pnl)]];
- $('statsSummary').innerHTML=cards.map(([label,value])=>`<div class="stat-card"><span>${label}</span><strong>${value}</strong></div>`).join('');
- const cats=['Fußball 1X2','Fußball X1/X2','Tennis'];
- $('statsByType').innerHTML=`<div class="stats-row stats-head"><span>Bereich</span><span>Tipps</span><span>Quote</span><span>G/V</span></div>`+cats.map(cat=>{
-  const a=rows.filter(x=>x.category===cat),v=statsFor(a);
-  return `<div class="stats-row"><span>${cat}</span><span>${v.total}</span><span>${(v.hit*100).toFixed(1)} %</span><span>${euro(v.pnl)}</span></div>`;
- }).join('');
- const list=$('trackedTips');list.className='tracked-list'+(rows.length?'':' empty');
- if(!rows.length){list.textContent='Noch keine Tipps gespeichert.';return;}
- list.innerHTML=[...rows].sort((a,b)=>String(b.kickoff).localeCompare(String(a.kickoff))).map(x=>`<article class="tracked-item"><div><b>${esc(x.home)} – ${esc(x.away)}</b><small>${esc(x.category)} · ${esc(x.league)} · ${x.kickoff?fmt(x.kickoff):'Datum nicht angegeben'}</small><small>${esc(x.pick)} · ${Number(x.prob||0).toFixed(1)} %</small></div><div class="tracked-controls"><select data-track-status="${esc(x.id)}"><option ${x.status==='Offen'?'selected':''}>Offen</option><option ${x.status==='Gewonnen'?'selected':''}>Gewonnen</option><option ${x.status==='Verloren'?'selected':''}>Verloren</option><option ${x.status==='Storniert'?'selected':''}>Storniert</option></select><input data-track-pnl="${esc(x.id)}" type="number" step="0.01" placeholder="G/V €" value="${x.pnl===null?'':x.pnl}"></div></article>`).join('');
-}
-document.addEventListener('change',e=>{
- const sid=e.target?.dataset?.trackStatus,pid=e.target?.dataset?.trackPnl;
- if(sid)updateTracked(sid,{status:e.target.value});
- if(pid){const val=e.target.value.trim();updateTracked(pid,{pnl:val===''?null:Number(val)});}
-});
-document.addEventListener('click',e=>{const btn=e.target.closest('[data-save-tip]');if(btn)saveSelectedTip(btn)});
-function exportTrackedCSV(){
- const rows=readTracked(),head=['Datum','Bereich','Liga','Heim/Spieler 1','Auswärts/Spieler 2','Tipp','Wahrscheinlichkeit','Ergebnis','Gewinn/Verlust EUR','Quelle'];
- const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
- const lines=[head,...rows.map(x=>[x.kickoff,x.category,x.league,x.home,x.away,x.pick,x.prob,x.status,x.pnl,x.source])].map(r=>r.map(quote).join(';'));
- const blob=new Blob(['\\uFEFF'+lines.join('\\r\\n')],{type:'text/csv;charset=utf-8'});
- const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='SurebetScanner_Tippsauswertung.csv';a.click();URL.revokeObjectURL(url);
-}
+function render(id,arr,empty){let el=$(id);el.className='cards'+(arr.length?'':' empty');if(!arr.length){el.textContent=empty;return}el.innerHTML=arr.map(x=>`<article class="tip"><div class="tiptop"><span class="league">${esc(x.league)}</span><span>${x.kickoff?fmt(x.kickoff)+' Uhr':'Beginn nicht angegeben'}</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="pickrow"><span class="pick">${esc(x.pick)}</span><span class="prob">${x.prob.toFixed(1)} %</span></div>${x.odds?`<div class="meta">Erfasste Quote: ${x.odds.toFixed(2)}</div>`:''}${x.modelInfo?`<div class="meta">${esc(x.modelInfo)}</div>`:''}<span class="source">${esc(x.source)}</span></article>`).join('')}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function eligible(arr){return dedupe(arr).filter(x=>isUpcoming(x.kickoff)).slice(0,MAX)}
 async function search(){
@@ -492,8 +390,8 @@ async function search(){
   let p=await r.json(),n=norm(p,diag);main=n.main;dc=n.dc;
   try{dc=dedupe([...await skor(diag),...dc])}catch(e){diag.push('Skorbot Fehler: '+e.message)}
   let fm=eligible(main),fd=eligible(dc);
-  render('mainList',fm,'Keine passenden, noch nicht gestarteten Fußballtipps.','Fußball 1X2');
-  render('dcList',fd,'Keine passenden, noch nicht gestarteten X1/X2-Tipps.','Fußball X1/X2');
+  render('mainList',fm,'Keine passenden, noch nicht gestarteten Fußballtipps.');
+  render('dcList',fd,'Keine passenden, noch nicht gestarteten X1/X2-Tipps.');
   $('mainCount').textContent=fm.length;$('dcCount').textContent=fd.length;
   diag.push(`Aktuelle Tipps: 1X2 ${fm.length}/${MAX}; X1/X2 ${fd.length}/${MAX}`);
   let fixtures=[];
@@ -504,7 +402,7 @@ async function search(){
     try{publicTips=await fetchTennis(diag)}catch(e){diag.push('TIPERO Zusatzquelle nicht verfügbar: '+e.message)}
     const combined=[...own,...publicTips].sort((a,b)=>b.prob-a.prob).slice(0,5);
     tennis=combined;
-    render('tennisList',tennis,'Keine belastbaren Tennisprognosen mit mindestens 60 % Modellwahrscheinlichkeit. Es werden keine Tipps künstlich erzeugt.','Tennis');
+    render('tennisList',tennis,'Keine belastbaren Tennisprognosen mit mindestens 60 % Modellwahrscheinlichkeit. Es werden keine Tipps künstlich erzeugt.');
     $('tennisCount').textContent=tennis.length;
     diag.push(`Tennis-Tipps gesamt: ${tennis.length}/5 (eigenes Modell=${own.length}, TIPERO öffentlich=${publicTips.length})`);
     $('status').textContent=`Suchlauf abgeschlossen: ${fm.length} Fußballtipps, ${fd.length} X1/X2-Tipps, ${tennis.length} Tennistipps und ${fixtures.length} Spielplan-Einträge.`;
@@ -522,10 +420,5 @@ async function search(){
  }
 }
 $('searchBtn').addEventListener('click',search);document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab,.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.tab).classList.add('active')}));
-$('exportStats').addEventListener('click',exportTrackedCSV);
-$('clearStats').addEventListener('click',async()=>{if(confirm('Soll wirklich dein gesamter gespeicherter Tippverlauf gelöscht werden?')){writeTracked([]);if(supabaseClient&&supabaseUser){const {error}=await supabaseClient.from('surebet_tips').delete().eq('user_id',supabaseUser.id);if(error)setSyncStatus('Lokal geleert, Supabase-Löschung fehlgeschlagen: '+error.message,true)}renderStats();refreshSaveButtons();}});
-$('saveSbConfig').addEventListener('click',saveSupabaseConfig);$('sbLogin').addEventListener('click',()=>authSupabase('login'));$('sbSignup').addEventListener('click',()=>authSupabase('signup'));$('sbLogout').addEventListener('click',async()=>{await supabaseClient?.auth.signOut();supabaseUser=null;writeTracked([]);renderStats();});
-const savedCfg=getSupabaseConfig();if(savedCfg.url)$('sbUrl').value=savedCfg.url;if(savedCfg.key)$('sbKey').value=savedCfg.key;if(!localStorage.getItem(SB_CONFIG_KEY))localStorage.setItem(SB_CONFIG_KEY,JSON.stringify(savedCfg));
-renderStats();initSupabase();
 function clock(){$('clock').textContent=new Intl.DateTimeFormat('de-AT',{timeZone:TZ,dateStyle:'short',timeStyle:'short'}).format(new Date())}clock();setInterval(clock,30000);
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));

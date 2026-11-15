@@ -7,11 +7,11 @@
 <title>Surebet Scanner</title><link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><div class="brand"><span class="ball">⚽</span><div><h1>Surebet Scanner</h1><small>Mobile · v1.3.3</small></div></div><div id="clock"></div></header>
+<header><div class="brand"><span class="ball">⚽</span><div><h1>Surebet Scanner</h1><small>Mobile · v1.3.0</small></div></div><div id="clock"></div></header>
 <main>
 <section class="hero"><div><p class="eyebrow">MANUELLER SUCHLAUF</p><h2>Deine heutigen Tipps</h2><p class="muted">Nur heutige, noch nicht gestartete Spiele · Europe/Vienna</p></div><button id="searchBtn">Jetzt suchen</button></section>
 <div id="status" class="status">Bereit. Starte eine Suche, wenn du möchtest.</div>
-<nav><button class="tab active" data-tab="main">Fußball 1X2 <b id="mainCount">0</b></button><button class="tab" data-tab="dc">X1 / X2 <b id="dcCount">0</b></button><button class="tab" data-tab="tennis">Tennis <b id="tennisCount">0</b></button><button class="tab" data-tab="stats">Auswertung</button></nav>
+<nav><button class="tab active" data-tab="main">Fußball 1X2 <b id="mainCount">0</b></button><button class="tab" data-tab="dc">X1 / X2 <b id="dcCount">0</b></button><button class="tab" data-tab="tennis">Tennis <b id="tennisCount">0</b></button></nav>
 <section id="main" class="panel active"><div class="section-head"><h3>Fußballtipps</h3><span>max. 7 pro Suchlauf</span></div><div id="mainList" class="cards empty">Noch keine Suche durchgeführt.</div></section>
 <section id="dc" class="panel"><div class="section-head"><h3>Doppelte Chance</h3><span>max. 7 pro Suchlauf</span></div><div id="dcList" class="cards empty">Noch keine Suche durchgeführt.</div></section>
 <section id="tennis" class="panel">
@@ -21,34 +21,9 @@
 <p class="muted">Spielplan-Einträge sind keine Wett-Tipps. Ohne belastbare Modellwahrscheinlichkeit wird keine Seite empfohlen.</p>
 <div id="tennisFixtures" class="cards empty">Noch keine Spielplandaten geladen.</div>
 </section>
-<section id="stats" class="panel">
-<div class="section-head"><h3>Meine Wett-Auswertung</h3><span>Nur selbst übernommene Tipps</span></div>
-<div class="supabase-box">
- <h4>Cloud-Synchronisierung (Supabase)</h4>
- <p class="muted">Verbinde dein Supabase-Projekt und melde dich mit deinem Konto an. Deine übernommenen Tipps werden dann geräteübergreifend gespeichert.</p>
- <label>Project URL<input id="sbUrl" type="url" value="https://lenrasytspoltdcmnqdq.supabase.co" placeholder="https://deinprojekt.supabase.co" autocomplete="url"></label>
- <label>Publishable Key / anon public key<input id="sbKey" type="password" value="sb_publishable_EF3q5GMh_ws8e77MesJJaQ_xYv67HMu" placeholder="Öffentlicher Schlüssel" autocomplete="off"></label>
- <button id="saveSbConfig" class="secondary-btn" type="button">Supabase-Verbindung speichern</button>
- <div id="sbAuthForm">
-  <label>E-Mail<input id="sbEmail" type="email" placeholder="deine@email.at" autocomplete="email"></label>
-  <label>Passwort<input id="sbPassword" type="password" placeholder="Mindestens 6 Zeichen" autocomplete="current-password"></label>
-  <div class="auth-buttons"><button id="sbLogin" type="button">Anmelden</button><button id="sbSignup" class="secondary-btn" type="button">Konto erstellen</button></div>
- </div>
- <div id="sbLoggedIn" hidden><span id="sbUserLabel"></span><button id="sbLogout" class="secondary-btn" type="button">Abmelden</button></div>
- <div id="syncStatus" class="sync-status">Supabase noch nicht eingerichtet.</div>
-</div>
-<div id="statsSummary" class="stats-grid"></div>
-<div class="section-head"><h3>Auswertung nach Bereich</h3></div>
-<div id="statsByType" class="stats-table"></div>
-<div class="section-head"><h3>Gespeicherte Tipps</h3><span id="trackedCount">0 Einträge</span></div>
-<p class="muted">Hier erscheinen ausschließlich Spiele, die du zuvor mit „Diesen Tipp übernehmen“ aktiv gespeichert hast. Danach trägst du den Status und den tatsächlichen Gewinn oder Verlust ein.</p>
-<div id="trackedTips" class="tracked-list empty">Noch keine Tipps gespeichert. Starte zuerst einen Suchlauf.</div>
-<button id="exportStats" class="secondary-btn" type="button">Auswertung als CSV exportieren</button>
-<button id="clearStats" class="danger-btn" type="button">Gesamten Tippverlauf löschen</button>
-</section>
 <section class="footnote"><b>Filter Fußball 1X2:</b> mindestens 65 % · maximal 7 Tipps.<br><b>Filter Fußball X1/X2:</b> unverändert mindestens 60 % · maximal 7 Tipps.<br><b>Filter Tennis:</b> Eigenes ATP/WTA-Elo-Modell auf Basis verifizierter historischer Tour-Matchdaten 2023–2026 · mindestens 60 % Modellwahrscheinlichkeit · maximal 5 Tipps. Öffentliche TIPERO-Tipps werden ergänzend berücksichtigt. Challenger/ITF wird derzeit nicht prognostiziert, wenn keine passende historische Datenbasis vorliegt.<br><b>Hinweis:</b> Wahrscheinlichkeiten sind Modellwerte, keine Gewinnzusage. X1/X2 wird aus den 1X2-Werten abgeleitet und ist keine unabhängige Prognose. Bei Tennisprognosen sind statistische Modellschätzungen, keine Gewinnzusage. Das Modell benötigt ausreichend historische Matches je Spieler. Matchdaten: Jeff Sackmann-Datensätze 2023–2026, CC BY-NC-SA 4.0 (nur nicht-kommerzielle Nutzung; Namensnennung und Weitergabe unter gleicher Lizenz). ATP/WTA-Haupttour-Abdeckung; Challenger/ITF derzeit nicht vollständig enthalten.</section>
 <section class="diag"><details><summary>Datenquellen & Diagnose</summary><pre id="diagnostics">Noch kein Abruf.</pre></details></section>
 </main>
 <footer>Surebet Scanner Mobile · Bitte nur verantwortungsvoll wetten.</footer>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="app.js"></script>
+<script src="app.js"></script>
 </body></html>
