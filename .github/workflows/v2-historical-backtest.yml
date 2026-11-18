@@ -1,0 +1,28 @@
+name: V2 historical football backtest
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "31 5 1 * *"
+permissions:
+  contents: read
+jobs:
+  historical-backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v2.0-development
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download CC0 OpenFootball data and run walk-forward evaluation
+        run: node v2-test/openfootball-backtest.mjs
+      - name: Upload reproducible report
+        uses: actions/upload-artifact@v4
+        with:
+          name: v2-openfootball-historical-backtest
+          path: |
+            openfootball-backtest.json
+            openfootball-backtest.md
+          if-no-files-found: error
+          retention-days: 90
