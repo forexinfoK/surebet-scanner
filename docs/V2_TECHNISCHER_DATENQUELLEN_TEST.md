@@ -78,3 +78,15 @@ Erst nach echtem Smoke-Test und Lizenzprüfung werden Datenadapter freigegeben. 
 - ESPN ATP Scoreboard: https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard
 - TIPERO API Docs: https://tipero.app/api-docs
 - Sackmann Archive und Lizenz: https://github.com/Aneeshers/tennis-sackmann-archive
+
+
+## Ergänzung: Ergebnisnormalisierung und Scanner-Anbindung (18.11.2026)
+
+- Der eigenständige OpenLigaDB-Adapter extrahiert nun ein reguläres Ergebnis bevorzugt über `ResultTypeKind = After90Minutes`; ein Fallback auf `ResultTypeID = 2` ist nur vorgesehen, wenn keine typisierten Resultate vorliegen.
+- Ein fehlendes Ergebnis bleibt `null` und wird nicht fälschlich als 0:0 gewertet.
+- Der Scanner übernimmt Heim-/Auswärtsteam-IDs als Strings und speichert historische Anstoßzeiten in ISO-UTC-Form, wie es das Prognosemodul erwartet.
+- Die Saisonabfrage richtet sich nach dem Saisonbeginn im Juli in der Zeitzone Europe/Vienna, statt blind das Kalenderjahr als aktuelle Saison zu verwenden.
+- Die JavaScript-Syntaxprüfung des Scanner-Moduls ist erfolgreich. Sie ersetzt keinen Browserlauf und keinen Live-API-Test.
+- Für diese Änderungen wurden zwei zusätzliche Simulationstests zur Ergebnisextraktion ergänzt. Sie sind in der Browser-Testseite enthalten, aber noch nicht im Browser ausgeführt.
+
+**Offen:** Die tatsächlichen OpenLigaDB-Antworten für alle zehn Zielwettbewerbe müssen im Browser geprüft werden. Insbesondere müssen Liga-Shortcuts, historische Ergebnistypen und Vollständigkeit pro Saison bestätigt werden. Die Quelle liefert zudem nicht für jedes Match einen belastbaren Aktualisierungszeitstempel. Daher darf eine bloße HTTP-200-Antwort noch nicht als Datenqualität A oder als Produktionsfreigabe gelten.
