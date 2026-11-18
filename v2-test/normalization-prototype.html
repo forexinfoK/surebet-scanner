@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Surebet Scanner 2.0 – Normalisierungs-Prototyp</title>
+<style>
+:root{font:16px system-ui,sans-serif;color-scheme:light dark}body{max-width:1050px;margin:28px auto;padding:0 16px;line-height:1.5}h1{font-size:1.55rem}h2{font-size:1.1rem;margin-top:26px}.note,.panel{border:1px solid #8886;border-radius:10px;padding:14px;margin:14px 0}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}button{padding:10px 15px;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}.test{border:1px solid #8886;border-radius:9px;padding:12px}.pass{color:#16834a;font-weight:700}.fail{color:#c43b3b;font-weight:700}.muted{opacity:.75;font-size:.9rem}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.82rem;max-height:360px;overflow:auto}.tag{display:inline-block;border:1px solid #8888;border-radius:20px;padding:2px 8px;font-size:.8rem;margin-right:5px}table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{border-bottom:1px solid #8885;padding:7px;text-align:left;vertical-align:top}
+</style>
+</head>
+<body>
+<h1>Surebet Scanner 2.0 – Normalisierungs-Prototyp</h1>
+<p class="note"><strong>Isolierter Entwicklungstest.</strong> Diese Seite verwendet ausschließlich eingebaute Beispieldaten (synthetische Fixtures). Es werden keine APIs aufgerufen, keine echten Spiele behauptet, keine Daten gespeichert und keine Tipps berechnet. Version 1.3.0 und die veröffentlichte PWA bleiben unberührt.</p>
+<div class="toolbar"><button id="run">Normalisierungstests ausführen</button><span id="summary" class="muted">Noch nicht ausgeführt</span></div>
+<h2>Testergebnisse</h2>
+<div id="tests" class="grid"></div>
+<h2>Normalisierte Beispieldatensätze</h2>
+<div class="panel"><div class="toolbar"><span class="tag">Fußball – synthetisch</span><span class="tag">Tennis – synthetisch</span></div><pre id="output">Nach dem Testlauf werden die normalisierten Objekte hier angezeigt.</pre></div>
+<h2>Abgedeckte Regeln</h2>
+<table><thead><tr><th>Regel</th><th>Erwartetes Verhalten</th></tr></thead><tbody>
+<tr><td>Pflichtfelder</td><td>Fehlende Teilnehmer oder Startzeit führen zum Ausschluss.</td></tr>
+<tr><td>Status</td><td>Nur eindeutig angesetzte Spiele erhalten den Status scheduled; unbekannte Statuswerte werden unknown.</td></tr>
+<tr><td>Zeit</td><td>Startzeiten werden als UTC gespeichert und für die Anzeige nach Europe/Vienna umgerechnet.</td></tr>
+<tr><td>Identität</td><td>Unvollständige oder mehrdeutige Teilnehmer werden nicht als prognosefähig markiert.</td></tr>
+<tr><td>Qualität</td><td>Unvollständige oder widersprüchliche Datensätze werden ausgeschlossen bzw. als C markiert.</td></tr>
+<tr><td>Quellentrennung</td><td>Quelle und Abrufzeit werden getrennt von Prognosen und Quoten gespeichert.</td></tr>
+</tbody></table>
+<script>
+"use strict";
+const TZ="Europe/Vienna";
+const isoValid=s=>typeof s==="string"&&Number.isFinite(Date.parse(s))&&/(Z|[+-]\\d{2}:?\\d{2})$/.test(s);
+function toUtc(s){if(!isoValid(s))return null;return new Date(s).toISOString();}
+function localVienna(utc){return new Intl.DateTimeFormat("de-AT",{timeZone:TZ,dateStyle:"short",timeStyle:"short"}).format(new Date(utc));}
+function mapFootballStatus(raw){
+ if(raw===true)return "completed";
+ if(raw===false)return "scheduled";
+ if(typeof raw==="string"){
+  const s=raw.toLowerCase();
+  if(["scheduled","notstarted","pre"].includes(s))return "scheduled";
+  if(["live","inprogress","in_progress"].includes(s))return "live";
+  if(["completed","finished","final"].includes(s))return "completed";
+  if(["postponed"].includes(s))return "postponed";
+  if(["cancelled","canceled"].includes(s))return "cancelled";
+  if(["suspended"].includes(s))return "suspended";
+ }
+ return "unknown";
+}
+function qualityFor({start,participants,status,sourceUpdated}){
+ const reasons=[];
+ if(!start)reasons.push("MISSING_START_TIME");
+ if(!participants)reasons.push("MISSING_PARTICIPANT");
+ if(status==="unknown")reasons.push("UNKNOWN_STATUS");
+ if(!sourceUpdated)reasons.push("SOURCE_TIMESTAMP_MISSING");
+ const hard=reasons.some(x=>["MISSING_START_TIME","MISSING_PARTICIPANT","UNKNOWN_STATUS"].includes(x));
+ return {grade:hard?"C":reasons.length?"B":"A",reasons,eligible:!hard};
+}
+function normalizeOpenLigaMatch(m,ctx){
+ const start=toUtc(m?.MatchDateTimeUTC);
+ const home=m?.Team1?.TeamName?.trim(),away=m?.Team2?.TeamName?.trim();
+ const participants=Boolean(home&&away);
+ const status=mapFootballStatus(m?.MatchIsFinished);
+ const quality=qualityFor({start,participants,status,sourceUpdated:ctx.sourceUpdatedAtUtc});
+ const id=m?.MatchID;
+ return {event_id:id!=null?"openligadb:"+String(id):null,sport:"football",
+  competition_id:String(m?.LeagueShortcut||"").trim()||null,competition_name:m?.LeagueName||null,
+  season:m?.LeagueSeason!=null?String(m.LeagueSeason):null,scheduled_start_utc:start,status,
+  participants:participants?{home_team:{name:home,source_name:home,source_entity_id:m.Team1.TeamId??null},away_team:{name:away,source_name:away,source_entity_id:m.Team2.TeamId??null}}:null,
+  source_records:[{source_id:"openligadb",source_event_id:id??null,fetched_at_utc:ctx.fetchedAtUtc,source_updated_at_utc:ctx.sourceUpdatedAtUtc,http_status:ctx.httpStatus??200,adapter_version:"prototype-0.1"}],
+  data_quality:quality,last_verified_at_utc:ctx.fetchedAtUtc};
+}
+function normalizeEspnTennisEvent(e,ctx){
+ const comp=e?.competitions?.[0];
+ const competitors=Array.isArray(comp?.competitors)?comp.competitors:[];
+ const a=competitors[0],b=competitors[1];
+ const pA=a?.athlete?.displayName||a?.team?.displayName||a?.displayName;
+ const pB=b?.athlete?.displayName||b?.team?.displayName||b?.displayName;
+ const participants=Boolean(pA&&pB);
+ const start=toUtc(e?.date);
+ const state=e?.status?.type?.state;
+ const status=mapFootballStatus(state==="pre"?"scheduled":state==="in"?"live":state==="post"?"completed":state);
+ const quality=qualityFor({start,participants,status,sourceUpdated:ctx.sourceUpdatedAtUtc});
+ const id=e?.id;
+ return {event_id:id!=null?"espn-tennis:"+String(id):null,sport:"tennis",
+  competition_id:e?.season?.slug||e?.league?.slug||"tennis-tour",competition_name:e?.name||e?.shortName||"Tennis event",
+  season:e?.season?.year!=null?String(e.season.year):null,scheduled_start_utc:start,status,
+  participants:participants?{player_a:{name:pA,source_name:pA,source_entity_id:a.athlete?.id??a.team?.id??null,tour:ctx.tour},player_b:{name:pB,source_name:pB,source_entity_id:b.athlete?.id??b.team?.id??null,tour:ctx.tour}}:null,
+  source_records:[{source_id:"espn-"+String(ctx.tour||"tennis").toLowerCase(),source_event_id:id??null,fetched_at_utc:ctx.fetchedAtUtc,source_updated_at_utc:ctx.sourceUpdatedAtUtc,http_status:ctx.httpStatus??200,adapter_version:"prototype-0.1"}],
+  data_quality:quality,last_verified_at_utc:ctx.fetchedAtUtc};
+}
+const context={fetchedAtUtc:"2026-11-18T10:00:00.000Z",sourceUpdatedAtUtc:"2026-11-18T09:58:00.000Z",httpStatus:200};
+const footballFixture={MatchID:987654,MatchDateTimeUTC:"2026-11-18T19:30:00Z",MatchIsFinished:false,LeagueName:"Beispiel-Liga (synthetisch)",LeagueShortcut:"TEST",LeagueSeason:2026,Team1:{TeamId:1,TeamName:"FC Beispiel Heim"},Team2:{TeamId:2,TeamName:"FC Beispiel Gast"}};
+const tennisFixture={id:"TST-123",date:"2026-11-18T14:00:00Z",name:"Synthetic Open – Round 1",season:{year:2026},status:{type:{state:"pre"}},competitions:[{competitors:[{athlete:{id:"P1",displayName:"Spieler A (synthetisch)"}},{athlete:{id:"P2",displayName:"Spieler B (synthetisch)"}}]}]};
+const tests=[];
+function add(name,fn){try{const msg=fn();tests.push({name,ok:true,msg});}catch(e){tests.push({name,ok:false,msg:e.message});}}
+function assert(v,msg){if(!v)throw new Error(msg);}
+function run(){
+ tests.length=0;
+ const f=normalizeOpenLigaMatch(footballFixture,context),t=normalizeEspnTennisEvent(tennisFixture,{...context,tour:"ATP"});
+ add("Fußball: Pflichtfelder und Teilnehmer",()=>{assert(f.event_id&&f.participants.home_team&&f.participants.away_team,"Fußball-Felder fehlen");return "Heim- und Auswärtsteam korrekt übernommen";});
+ add("Tennis: Spieler und Tour",()=>{assert(t.participants.player_a.name&&t.participants.player_b.name&&t.participants.player_a.tour==="ATP","Tennis-Felder fehlen");return "Beide Spieler und ATP-Kennung übernommen";});
+ add("UTC-Speicherung",()=>{assert(f.scheduled_start_utc==="2026-11-18T19:30:00.000Z","UTC-Zeit nicht korrekt");return f.scheduled_start_utc;});
+ add("Wiener Ortszeit",()=>{assert(localVienna(f.scheduled_start_utc).includes("20:30"),"Wiener Zeitumrechnung falsch");return localVienna(f.scheduled_start_utc)+" (Europe/Vienna)";});
+ add("Angesetzter Status",()=>{assert(f.status==="scheduled"&&t.status==="scheduled","Status nicht scheduled");return "Beide Fixtures scheduled";});
+ add("Abgeschlossene Spiele ausschließen",()=>{assert(mapFootballStatus(true)==="completed","Finished-Flag falsch");return "MatchIsFinished=true wird completed";});
+ add("Unbekannter Status wird nicht freigegeben",()=>{const x=normalizeOpenLigaMatch({...footballFixture,MatchIsFinished:"mystery"},context);assert(x.status==="unknown"&&!x.data_quality.eligible,"Unbekannter Status wurde freigegeben");return "unknown, Qualität C, nicht prognosefähig";});
+ add("Fehlende Startzeit ausschließen",()=>{const x=normalizeOpenLigaMatch({...footballFixture,MatchDateTimeUTC:null},context);assert(!x.scheduled_start_utc&&!x.data_quality.eligible,"Startzeit-Lücke nicht erkannt");return "MISSING_START_TIME erkannt";});
+ add("Fehlende Teilnehmer ausschließen",()=>{const x=normalizeOpenLigaMatch({...footballFixture,Team2:null},context);assert(!x.participants&&!x.data_quality.eligible,"Teilnehmer-Lücke nicht erkannt");return "MISSING_PARTICIPANT erkannt";});
+ add("Fehlender Quellenzeitstempel herabstufen",()=>{const x=normalizeOpenLigaMatch(footballFixture,{...context,sourceUpdatedAtUtc:null});assert(x.data_quality.grade==="B","Qualität nicht herabgestuft");return "Qualität B; Zeitstempel-Lücke dokumentiert";});
+ add("Ungültige Zeit mit fehlender Zeitzone",()=>{assert(toUtc("2026-11-18T19:30:00")===null,"Zeit ohne Offset wurde akzeptiert");return "Zeit ohne Z/Offset wird abgewiesen";});
+ const root=document.getElementById("tests");root.replaceChildren();
+ for(const x of tests){const el=document.createElement("section");el.className="test";const h=document.createElement("div");h.className=x.ok?"pass":"fail";h.textContent=(x.ok?"BESTANDEN: ":"FEHLER: ")+x.name;const p=document.createElement("p");p.textContent=x.msg;el.append(h,p);root.append(el);}
+ document.getElementById("summary").textContent=tests.filter(x=>x.ok).length+" / "+tests.length+" Tests bestanden";
+ document.getElementById("output").textContent=JSON.stringify({football:f,tennis:t},null,2);
+}
+document.getElementById("run").addEventListener("click",run);
+</script>
+</body>
+</html>
