@@ -6,6 +6,7 @@ import { predictFootballMatch } from "../v2/src/models/football-pipeline.js";
 import { runFootballWalkForward } from "../v2/src/backtest/football-backtest.js";
 import { calculateTennisElo } from "../v2/src/models/tennis-elo.js";
 import { normalizeMatch, mapMatchStatus, extractRegulationTimeScore } from "../v2/src/adapters/openligadb.js";
+import { parseFootballTxt } from "./openfootball-backtest.mjs";
 
 function footballHistory(count=120) {
   const rows=[];
@@ -171,4 +172,25 @@ test("OpenLigaDB: gleiche Team-IDs werden unabhängig vom Datentyp abgelehnt",()
   },{nowMs:Date.parse("2026-11-18T12:00:00Z"),fetchedAtUtc:"2026-11-18T12:00:00Z"});
   assert.equal(row.data_quality.eligible,false);
   assert.ok(row.data_quality.reasons.includes("DUPLICATE_TEAM_ID"));
+});
+
+test("OpenFootball-Parser liest Ergebnisse und setzt Saisonjahr bei Jahreswechsel korrekt",()=>{
+  const source=`= France | Ligue 1 2025/26
+# Matches  306
+
+Fri Aug 15 2025
+  20:45   Rennes  1-0 (0-0)  Olympique Marseille
+Sat Aug 16
+  17:00   Lens  0-1 (0-1)  Olympique Lyonnais
+
+Sat Jan 10
+  19:00   Rennes  2-1 (1-0)  Lens
+`;
+  const competition={id:"fr1",name:"France Ligue 1"};
+  const rows=parseFootballTxt(source,competition,"2025-26");
+  assert.equal(rows.length,3);
+  assert.equal(rows[0].homeTeamId,"rennes");
+  assert.equal(rows[0].homeGoals,1);
+  assert.equal(rows[2].dateUtc,"2026-01-10T12:00:00.000Z");
+  assert.equal(rows[0].dateUtc,rows[1].dateUtc);
 });
