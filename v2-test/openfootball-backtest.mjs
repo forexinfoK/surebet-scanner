@@ -41,10 +41,14 @@ function parseFootballTxt(source, competition, season) {
       lastMonth = month;
       continue;
     }
-    const m = line.match(MATCH_LINE);
-    if (!m || !currentDate) continue;
-    const home = m[2].trim(), away = m[5].trim();
-    const homeGoals = Number(m[3]), awayGoals = Number(m[4]);
+    if (!currentDate) continue;
+    const standard = line.match(MATCH_LINE);
+    const versus = standard ? null : line.match(MATCH_V_LINE);
+    if (!standard && !versus) continue;
+    const home = standard ? standard[2].trim() : versus[1].trim();
+    const away = standard ? standard[5].trim() : versus[2].trim();
+    const homeGoals = Number(standard ? standard[3] : versus[3]);
+    const awayGoals = Number(standard ? standard[4] : versus[4]);
     if (!home || !away || teamKey(home) === teamKey(away) ||
         !Number.isInteger(homeGoals) || !Number.isInteger(awayGoals)) continue;
     // OpenFootball supplies local kickoff clocks without a timezone. For a
