@@ -45,24 +45,35 @@ async function scan(){
  const diagnostics=[];const now=new Date();const currentYear=now.getUTCFullYear();const localMonth=Number(new Intl.DateTimeFormat("en",{timeZone:TZ,month:"numeric"}).format(now));const seasonStartYear=localMonth>=7?currentYear:currentYear-1;const seasonYears=[seasonStartYear,seasonStartYear-1,seasonStartYear-2,seasonStartYear-3];
  const leagueMaps=new Map();let fixtures=[];let completed=0;let errors=0;
  const overviews=await Promise.all(seasonYears.map(async y=>{try{const a=await json(API+"/getavailableleagues/"+y);diagnostics.push("Ligaübersicht "+y+": "+a.length+" Einträge");return [y,a]}catch(e){diagnostics.push("Ligaübersicht "+y+": "+e.message);errors++;return [y,[]]}}));
+ const jobs=[];
  for(const target of TARGETS){
   const entries=[];
   for(const [year,list] of overviews){const l=findLeague(list,target);if(l)entries.push({year,league:l})}
   if(!entries.length){diagnostics.push(target.name+": keine eindeutige Liga-Zuordnung gefunden");continue}
-  // Keep every season: collapsing by league shortcut here would silently
-  // discard three of the four historical seasons needed by the model.
   const unique=new Map(entries.map(x=>[String(x.league.leagueShortcut||x.league.LeagueShortcut)+"|"+x.year,x]));
   for(const {year,league} of unique.values()){
    const shortcut=league.leagueShortcut||league.LeagueShortcut;
+   jobs.push({target,year,shortcut});
+  }
+ }
+ // Four concurrent requests stay comfortably below the documented API limit
+ // while avoiding the former long serial loop across every competition/season.
+ let cursor=0;
+ const workers=Array.from({length:Math.min(4,jobs.length)},async()=>{
+  while(cursor<jobs.length){
+   const job=jobs[cursor++];
+   const {target,year,shortcut}=job;
    try{
     const rows=await json(API+"/getmatchdata/"+encodeURIComponent(shortcut)+"/"+year);
     if(!Array.isArray(rows))throw Error("Spielplan ist kein Array");
     const mapped=rows.map(m=>mapMatch(m,shortcut,year)).filter(m=>m.id!=null&&m.dateUtc&&m.homeTeamId&&m.awayTeamId&&m.homeTeamId!==m.awayTeamId);
-    fixtures.push(...mapped);completed+=mapped.filter(m=>m.status==="completed"&&Number.isInteger(m.homeGoals)&&Number.isInteger(m.awayGoals)).length;
+    fixtures.push(...mapped);
+    completed+=mapped.filter(m=>m.status==="completed"&&Number.isInteger(m.homeGoals)&&Number.isInteger(m.awayGoals)).length;
     diagnostics.push(target.name+" / "+year+" ("+shortcut+"): "+mapped.length+" Spiele, davon "+mapped.filter(m=>m.status==="completed"&&Number.isInteger(m.homeGoals)&&Number.isInteger(m.awayGoals)).length+" mit Ergebnis");
    }catch(e){errors++;diagnostics.push(target.name+" / "+year+": "+e.message)}
   }
- }
+ });
+ await Promise.all(workers);
  const seen=new Set();fixtures=fixtures.filter(m=>{const k=m.competition+"|"+m.id;if(seen.has(k))return false;seen.add(k);return true});
  const todays=fixtures.filter(m=>m.status==="scheduled"&&Number.isFinite(Date.parse(m.dateUtc))&&dayKey(new Date(m.dateUtc))===dayKey(now));
  const historyByComp=new Map();
