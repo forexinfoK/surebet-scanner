@@ -25,4 +25,5 @@ jobs:
       - run: node --check v2/app.js
       - run: node --check v2/sw.js
       - run: node --check v2-test/openligadb-coverage.mjs
+      - run: node --check v2-test/openfootball-backtest.mjs
       - run: node --test v2-test/node-tests.mjs
