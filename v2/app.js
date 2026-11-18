@@ -1,4 +1,5 @@
 import { predictFootballMatch } from "./src/models/football-pipeline.js";
+import { normalizeMatch } from "./src/adapters/openligadb.js";
 const API="https://api.openligadb.de";
 const TZ="Europe/Vienna";
 const TARGETS=[
@@ -27,20 +28,15 @@ function findLeague(list,target){
  for(const alias of aliases){const matches=names.filter(x=>x.name.includes(alias));if(matches.length===1)return matches[0].league}
  return null
 }
-function mapMatch(m,shortcut,season){
- const home=m.team1||m.Team1,away=m.team2||m.Team2;
- const id=m.matchID??m.MatchID;
- const start=m.matchDateTimeUTC||m.MatchDateTimeUTC;
- const finished=m.matchIsFinished??m.MatchIsFinished;
- const results=m.matchResults||m.MatchResults||[];
- const typed=results.filter(r=>typeof(r.resultTypeKind??r.ResultTypeKind)==="string");
- const final=typed.length?typed.find(r=>(r.resultTypeKind??r.ResultTypeKind)==="After90Minutes"):results.find(r=>Number(r.resultTypeID??r.ResultTypeID)===2);
- const hg=final?Number(final.pointsTeam1??final.PointsTeam1):NaN;
- const ag=final?Number(final.pointsTeam2??final.PointsTeam2):NaN;
- const validScore=Number.isInteger(hg)&&hg>=0&&Number.isInteger(ag)&&ag>=0;
- return {id,competition:shortcut,season:String(season),dateUtc:start,homeTeamId:idOf(home),awayTeamId:idOf(away),homeName:home?.teamName||home?.TeamName,awayName:away?.teamName||away?.TeamName,status:finished===true?"completed":finished===false&&Date.parse(start)>Date.now()?"scheduled":"unknown",homeGoals:validScore?hg:null,awayGoals:validScore?ag:null,raw:m};
+function mapMatch(m,shortcut,season,nowMs=Date.now()){
+ const normalized=normalizeMatch(m,{
+  leagueShortcut:shortcut,
+  season,
+  nowMs,
+  fetchedAtUtc:new Date(nowMs).toISOString()
+ });
+ return {...normalized,competition:shortcut,raw:m};
 }
-function idOf(team){const id=team?.teamId??team?.TeamId;return id==null?null:String(id)}
 async function scan(){
  const diagnostics=[];const now=new Date();const currentYear=now.getUTCFullYear();const localMonth=Number(new Intl.DateTimeFormat("en",{timeZone:TZ,month:"numeric"}).format(now));const seasonStartYear=localMonth>=7?currentYear:currentYear-1;const seasonYears=[seasonStartYear,seasonStartYear-1,seasonStartYear-2,seasonStartYear-3];
  const leagueMaps=new Map();let fixtures=[];let completed=0;let errors=0;
@@ -66,10 +62,12 @@ async function scan(){
    try{
     const rows=await json(API+"/getmatchdata/"+encodeURIComponent(shortcut)+"/"+year);
     if(!Array.isArray(rows))throw Error("Spielplan ist kein Array");
-    const mapped=rows.map(m=>mapMatch(m,shortcut,year)).filter(m=>m.id!=null&&m.dateUtc&&m.homeTeamId&&m.awayTeamId&&m.homeTeamId!==m.awayTeamId);
+    const fetchedAt=Date.now();
+    const mapped=rows.map(m=>mapMatch(m,shortcut,year,fetchedAt)).filter(m=>m.data_quality?.eligible&&m.id!=null&&m.dateUtc&&m.homeTeamId&&m.awayTeamId&&m.homeTeamId!==m.awayTeamId);
     fixtures.push(...mapped);
     completed+=mapped.filter(m=>m.status==="completed"&&Number.isInteger(m.homeGoals)&&Number.isInteger(m.awayGoals)).length;
-    diagnostics.push(target.name+" / "+year+" ("+shortcut+"): "+mapped.length+" Spiele, davon "+mapped.filter(m=>m.status==="completed"&&Number.isInteger(m.homeGoals)&&Number.isInteger(m.awayGoals)).length+" mit Ergebnis");
+    const missingSourceTimestamps=mapped.filter(m=>m.data_quality?.reasons?.includes("SOURCE_TIMESTAMP_MISSING")).length;
+    diagnostics.push(target.name+" / "+year+" ("+shortcut+"): "+mapped.length+" valide Spiele, davon "+mapped.filter(m=>m.status==="completed"&&Number.isInteger(m.homeGoals)&&Number.isInteger(m.awayGoals)).length+" mit Ergebnis; "+missingSourceTimestamps+" ohne Quell-Aktualisierungszeitpunkt");
    }catch(e){errors++;diagnostics.push(target.name+" / "+year+": "+e.message)}
   }
  });
