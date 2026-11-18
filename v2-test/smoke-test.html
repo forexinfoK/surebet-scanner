@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Surebet Scanner 2.0 – API-Smoke-Test</title>
+<style>
+:root{color-scheme:light dark;font:16px system-ui,sans-serif}body{max-width:1000px;margin:32px auto;padding:0 16px}h1{font-size:1.6rem}.note{padding:12px;border:1px solid #8886;border-radius:8px;margin:16px 0}.toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:20px 0}button{padding:10px 16px;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}.item{border:1px solid #8886;border-radius:10px;padding:14px;min-width:0}.status{font-weight:700}.muted{opacity:.75;font-size:.9rem}.ok{color:#16834a}.bad{color:#c43b3b}.wait{color:#a87916}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.82rem;max-height:180px;overflow:auto}.foot{margin-top:24px;font-size:.85rem}
+</style>
+</head>
+<body>
+<h1>Surebet Scanner 2.0 – API-Smoke-Test</h1>
+<p class="note"><strong>Getrennte Testseite.</strong> Diese Seite prüft nur öffentliche Datenquellen auf Erreichbarkeit, Antwortzeit, JSON-Struktur und grobe Datenabdeckung. Sie berechnet keine Tipps, speichert nichts und verändert Version 1.3.0 nicht.</p>
+<div class="toolbar">
+<button id="run">Tests starten</button>
+<span id="overall" class="muted">Noch nicht ausgeführt</span>
+</div>
+<div id="results" class="grid"></div>
+<p class="foot">Hinweis: Ein erfolgreicher Einzelabruf ist noch keine Produktionsfreigabe. Lizenz, Aktualität, Vollständigkeit und Stabilität müssen separat bewertet werden. Die Tests rufen die Quellen nur einmal pro Klick ab.</p>
+<script>
+const tests = [
+ {name:"OpenLigaDB – verfügbare Ligen",url:"https://api.openligadb.de/getavailableleagues",kind:"array",describe:d=>({Datensätze:d.length,Beispiel:d.slice(0,3).map(x=>x.leagueName+" ("+x.leagueShortcut+"/"+x.leagueSeason+")").join("; ")||"Keine Einträge"})},
+ {name:"Skorbot – aktuelles Fußballfenster",url:"https://skorbot.live/api/v1/matches.json",kind:"object",describe:d=>({Matches:Array.isArray(d.matches)?d.matches.length:"Feld 'matches' fehlt",Aktualisiert:d.updated_at||d.generated_at||"Zeitstempel im Root nicht vorhanden"})},
+ {name:"TIPERO – neueste öffentliche Tennispicks",url:"https://api.tipero.app/api/latest",kind:"object",describe:d=>({Picks:Array.isArray(d.picks)?d.picks.length:"Feld 'picks' fehlt",Spieldatum:d.run?.match_date||"Nicht angegeben",Veröffentlicht:d.run?.published_at_utc||"Nicht angegeben"})},
+ {name:"ESPN – ATP Spielplan",url:"https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard",kind:"object",describe:d=>({Events:Array.isArray(d.events)?d.events.length:"Feld 'events' fehlt",Datum:d.day?.date||d.leagues?.[0]?.calendar?.[0]||"Nicht angegeben"})},
+ {name:"ESPN – WTA Spielplan",url:"https://site.api.espn.com/apis/site/v2/sports/tennis/wta/scoreboard",kind:"object",describe:d=>({Events:Array.isArray(d.events)?d.events.length:"Feld 'events' fehlt",Datum:d.day?.date||d.leagues?.[0]?.calendar?.[0]||"Nicht angegeben"})}
+];
+const results=document.getElementById("results"),overall=document.getElementById("overall"),button=document.getElementById("run");
+function card(test){const el=document.createElement("section");el.className="item";el.innerHTML="<h3></h3><div class='status wait'>Wird geprüft …</div><p class='muted'></p><pre></pre>";el.querySelector("h3").textContent=test.name;results.appendChild(el);return el}
+async function runOne(test,el){
+ const status=el.querySelector(".status"),meta=el.querySelector("p"),pre=el.querySelector("pre"),start=performance.now();
+ try{
+  const response=await fetch(test.url,{method:"GET",headers:{"Accept":"application/json"},cache:"no-store",signal:AbortSignal.timeout(12000)});
+  const elapsed=Math.round(performance.now()-start);
+  if(!response.ok)throw new Error("HTTP "+response.status+" "+response.statusText);
+  const data=await response.json();
+  const shape=test.kind==="array"?Array.isArray(data):data!==null&&typeof data==="object"&&!Array.isArray(data);
+  if(!shape)throw new Error("Unerwartete JSON-Grundstruktur");
+  const facts=test.describe(data);
+  const missing=Object.values(facts).some(v=>typeof v==="string"&&v.includes("fehlt"));
+  status.textContent=missing?"ERREICHBAR – SCHEMA PRÜFEN":"ERREICHBAR";
+  status.className="status "+(missing?"wait":"ok");
+  meta.textContent="HTTP "+response.status+" · "+elapsed+" ms · "+new Date().toLocaleString("de-AT");
+  pre.textContent=Object.entries(facts).map(([k,v])=>k+": "+v).join("\n");
+ }catch(e){
+  status.textContent="FEHLER / NICHT ERREICHBAR";status.className="status bad";
+  meta.textContent=Math.round(performance.now()-start)+" ms · "+new Date().toLocaleString("de-AT");
+  pre.textContent=String(e)+"\nMögliche Ursache: CORS, Netzwerk, Rate-Limit, Timeout oder API-Ausfall.";
+ }
+}
+button.addEventListener("click",async()=>{
+ button.disabled=true;results.replaceChildren();overall.textContent="Tests laufen …";
+ const els=tests.map(card);
+ await Promise.all(tests.map((t,i)=>runOne(t,els[i])));
+ const ok=els.filter(e=>e.querySelector(".status").classList.contains("ok")).length;
+ overall.textContent=ok+" von "+tests.length+" Quellen mit Grundprüfung erreichbar";
+ button.disabled=false;
+});
+</script>
+</body>
+</html>
