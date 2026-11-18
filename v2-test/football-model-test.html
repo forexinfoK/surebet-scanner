@@ -1,0 +1,18 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Surebet 2.0 – Modelltests</title><style>body{font:16px system-ui;max-width:850px;margin:28px auto;padding:0 16px;background:#101827;color:#eee}.item{padding:10px;margin:8px 0;border:1px solid #64748b;border-radius:8px}.ok{border-color:#16a34a}.fail{border-color:#dc2626}button{padding:12px 18px}</style></head><body><h1>Fußballmodell – technische Tests</h1><p>Nur synthetische Daten. Die Ergebnisse belegen keine Prognosegüte mit echten Spielen.</p><button id="run">Tests starten</button><h2 id="summary">Noch nicht ausgeführt</h2><div id="results"></div><script type="module">
+import {estimateTeamStrengths} from "../v2/src/models/football-team-strength.js";
+import {predict1X2,poissonProbabilities} from "../v2/src/models/football-poisson.js";
+import {predictFootballMatch} from "../v2/src/models/football-pipeline.js";
+const matches=[];const teams=["A","B","C","D"];
+for(let i=0;i<100;i++){const date=new Date(Date.UTC(2025,0,1+i*2,15));matches.push({dateUtc:date.toISOString(),status:"completed",homeTeamId:teams[i%4],awayTeamId:teams[(i+1)%4],homeGoals:(i*7%4),awayGoals:(i*5+1)%3})}
+const assert=(x,m)=>{if(!x)throw Error(m)};
+document.getElementById("run").onclick=()=>{
+ const checks=[];const test=(name,fn)=>{try{fn();checks.push({name,ok:true})}catch(e){checks.push({name,ok:false,error:e.message})}};
+ test("Poisson-Verteilung summiert auf 1",()=>assert(Math.abs(poissonProbabilities(1.65).reduce((a,b)=>a+b,0)-1)<1e-12,"Summe falsch"));
+ test("1X2-Wahrscheinlichkeiten summieren auf 1",()=>{const p=predict1X2({leagueHomeGoals:1.5,leagueAwayGoals:1.1,homeAttack:1.1,homeDefence:.9,awayAttack:.95,awayDefence:1.05}).probabilities;assert(Math.abs(p.home_win+p.draw+p.away_win-1)<1e-12,"Summe falsch")});
+ test("Doppelte Chance ist rechnerisch konsistent",()=>{const p=predict1X2({leagueHomeGoals:1.5,leagueAwayGoals:1.1,homeAttack:1.1,homeDefence:.9,awayAttack:.95,awayDefence:1.05}).probabilities;assert(Math.abs(p.double_chance_1x-p.home_win-p.draw)<1e-12,"1X falsch");assert(Math.abs(p.double_chance_x2-p.away_win-p.draw)<1e-12,"X2 falsch");assert(Math.abs(p.double_chance_12-p.home_win-p.away_win)<1e-12,"12 falsch")});
+ test("Zukünftige Ergebnisse werden ausgeschlossen",()=>{const target={homeTeamId:"A",awayTeamId:"B",kickoffUtc:"2025-08-01T12:00:00Z"};const all=[...matches,{dateUtc:"2025-09-01T12:00:00Z",status:"completed",homeTeamId:"A",awayTeamId:"B",homeGoals:99,awayGoals:1}];const s=estimateTeamStrengths(all,target);assert(s.historical_match_count===matches.length,"Zukunftsspiel einbezogen")});
+ test("Gleiches Heim- und Auswärtsteam wird abgelehnt",()=>{let rejected=false;try{estimateTeamStrengths(matches,{homeTeamId:"A",awayTeamId:"A",kickoffUtc:"2025-08-01T12:00:00Z"})}catch(e){rejected=true}assert(rejected,"Ungültiges Spiel angenommen")});
+ test("Mangelnde Team-Heim-/Auswärtshistorie wird abgelehnt",()=>{let rejected=false;try{predictFootballMatch(matches,{homeTeamId:"A",awayTeamId:"B",kickoffUtc:"2025-08-01T12:00:00Z"},{minHistoryMatches:20,minTeamVenueMatches:1000})}catch(e){rejected=true}assert(rejected,"Ungenügende Historie angenommen")});
+ const root=document.getElementById("results");root.replaceChildren();for(const c of checks){const d=document.createElement("div");d.className="item "+(c.ok?"ok":"fail");d.textContent=(c.ok?"BESTANDEN: ":"FEHLER: ")+c.name+(c.error?" – "+c.error:"");root.append(d)}document.getElementById("summary").textContent=checks.filter(x=>x.ok).length+" / "+checks.length+" bestanden";
+};
+</script></body></html>
