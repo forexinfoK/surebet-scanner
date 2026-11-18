@@ -43,8 +43,8 @@ function parseFootballTxt(source, competition, season) {
       continue;
     }
     if (!currentDate) continue;
-    const standard = line.match(MATCH_LINE);
-    const versus = standard ? null : line.match(MATCH_V_LINE);
+    const versus = line.match(MATCH_V_LINE);
+    const standard = versus ? null : line.match(MATCH_LINE);
     if (!standard && !versus) continue;
     const home = standard ? standard[2].trim() : versus[1].trim();
     const away = standard ? standard[5].trim() : versus[2].trim();
