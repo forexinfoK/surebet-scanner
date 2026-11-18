@@ -18,7 +18,15 @@ const dayKey=d=>new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",mont
 const fmt=d=>new Intl.DateTimeFormat("de-AT",{timeZone:TZ,dateStyle:"short",timeStyle:"short"}).format(new Date(d));
 const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
 async function json(url){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);try{const r=await fetch(url,{headers:{Accept:"application/json"},cache:"no-store",signal:controller.signal});if(!r.ok)throw Error("HTTP "+r.status+" bei "+url);const data=await r.json();return data}finally{clearTimeout(timer)}}
-function findLeague(list,target){const aliases=target.aliases.map(norm);for(const alias of aliases){const found=list.filter(l=>norm(l.leagueName||l.LeagueName)===alias);if(found.length===1)return found[0]}return null}
+function findLeague(list,target){
+ const names=list.map(l=>({league:l,name:norm(l.leagueName||l.LeagueName),shortcut:norm(l.leagueShortcut||l.LeagueShortcut)}));
+ const aliases=target.aliases.map(norm);
+ for(const alias of aliases){const exact=names.filter(x=>x.name===alias);if(exact.length===1)return exact[0].league}
+ // Community league names can contain season sponsors or branding. Accept a
+ // substring only when it identifies exactly one league in that season.
+ for(const alias of aliases){const matches=names.filter(x=>x.name.includes(alias));if(matches.length===1)return matches[0].league}
+ return null
+}
 function mapMatch(m,shortcut,season){
  const home=m.team1||m.Team1,away=m.team2||m.Team2;
  const id=m.matchID??m.MatchID;
@@ -80,4 +88,5 @@ function render(result){
  $("diagnostics").textContent=result.diagnostics.join("\n");
 }
 $("scan").addEventListener("click",async()=>{const b=$("scan");b.disabled=true;$("status").textContent="Rufe Ligen, Spielpläne und historische Ergebnisse ab …";try{const r=await scan();render(r);$("status").textContent="Suchlauf abgeschlossen. "+r.fixtures.length+" Spiele geladen; "+r.errors+" Abruffehler; "+r.rejectedPredictions+" Spiele wegen unzureichender Historie ausgelassen. Keine künstlich erzeugten Tipps."}catch(e){$("status").textContent="Scannerfehler: "+e.message;$("diagnostics").textContent=e.stack||e.message}finally{b.disabled=false}});
-$("clock").textContent=new Intl.DateTimeFormat("de-AT",{timeZone:TZ,dateStyle:"medium",timeStyle:"short"}).format(new Date());
+function updateClock(){$("clock").textContent=new Intl.DateTimeFormat("de-AT",{timeZone:TZ,dateStyle:"medium",timeStyle:"short"}).format(new Date())}
+updateClock();setInterval(updateClock,30000);
