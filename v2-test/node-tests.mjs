@@ -141,3 +141,14 @@ test("Team-IDs als Zahl und Text werden identisch behandelt",()=>{
   assert.ok(Number.isFinite(result.awayAttack));
   assert.throws(()=>estimateTeamStrengths(rows,{...target,awayTeamId:"65"}),/must differ/);
 });
+
+test("Walk-forward verwirft identische Team-IDs auch bei Zahl/Text-Mischung",()=>{
+  const rows=footballHistory(80).map(m=>({...m,homeTeamId:Number(m.homeTeamId.charCodeAt(0)),awayTeamId:m.awayTeamId}));
+  rows.push({
+    competition:"test-league",dateUtc:"2025-01-01T12:00:00Z",status:"completed",
+    homeTeamId:65,awayTeamId:"65",homeGoals:4,awayGoals:0
+  });
+  const result=runFootballWalkForward(rows,{minHistoryMatches:20,minTeamVenueMatches:1});
+  assert.equal(result.valid_matches,80);
+  assert.equal(result.skipped_count+result.evaluated.sample_size,80);
+});
