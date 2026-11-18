@@ -195,3 +195,17 @@ Implementiert in `v2/src/models/football-team-strength.js`:
 Isolierte Funktionstests: 8/8 bestanden, einschließlich Prüfung auf Zukunftsdaten-Leakage. Testseite: `v2-test/football-team-strength-test.html`.
 
 **Grenze:** Die Tests verwenden synthetische Fixtures. Die Schätzung ist noch nicht mit realen Ligadaten validiert. Sie setzt außerdem voraus, dass die übergebenen historischen Spiele derselben Wettbewerb-/Saisonpopulation angehören und Team-IDs stabil zugeordnet sind. Der Parameter `priorMatches` ist eine technische Glättungseinstellung, noch nicht anhand eines Backtests optimiert.
+
+
+## 11. Implementierungsstand – integrierte Fußball-Pipeline (18.11.2026)
+
+Implementiert in `v2/src/models/football-pipeline.js`:
+- verbindet die historische Teamstärken-Schätzung mit der Poisson-1X2-Berechnung;
+- fordert standardmäßig mindestens 20 gültige abgeschlossene historische Spiele;
+- liefert 1X2 und daraus abgeleitete Doppelte Chancen;
+- gibt Anstoßzeit, Team-IDs, Datenumfang und effektive Teamstichproben mit aus;
+- verwendet keine Wettquoten.
+
+Isolierte Pipeline-Tests: 8 Fälle angelegt. Die zugehörige Browser-Testseite liegt unter `v2-test/football-pipeline-test.html`. Die Tests sind noch nicht im echten Browser ausgeführt worden; die Modellkomponenten wurden zuvor separat im JavaScript-Laufzeittest geprüft.
+
+**Noch keine Produktionsfreigabe:** Die Pipeline benötigt reale, korrekt zugeordnete und lizenzkonforme historische Spieldaten. Die Mindestzahl 20 ist vorläufig und muss durch Walk-forward-Backtests je Liga geprüft werden. Es gibt noch keine Kalibrierung, keine Dixon-Coles-Korrektur und keine empirische Gütebewertung.
