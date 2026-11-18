@@ -67,7 +67,7 @@ const workers = Array.from({ length: 3 }, async () => {
         const id = m.matchID ?? m.MatchID;
         const home = m.team1 ?? m.Team1, away = m.team2 ?? m.Team2;
         const start = m.matchDateTimeUTC ?? m.MatchDateTimeUTC;
-        const validStart = typeof start === "string" && Number.isFinite(Date.parse(start)) && /(Z|[+-]\\d{2}:?\\d{2})$/.test(start);
+        const validStart = typeof start === "string" && Number.isFinite(Date.parse(start)) && /(Z|[+-]\d{2}:?\d{2})$/.test(start);
         if (validStart) validTimes++;
         if (id != null && ids.has(String(id))) duplicates++;
         if (id != null) ids.add(String(id));
