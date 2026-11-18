@@ -1,0 +1,47 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Teamstärken – Funktionstest</title>
+<style>body{font:16px system-ui,sans-serif;max-width:900px;margin:28px auto;padding:0 16px;line-height:1.5}button{padding:10px 14px}.test{border:1px solid #8887;border-radius:8px;padding:10px;margin:8px 0}.pass{color:green}.fail{color:#c33}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head>
+<body><h1>Teamstärken-Schätzung – Test</h1><p>Nur synthetische historische Spiele. Prüft Zeitfilter, abgeschlossene Spiele, Glättung und fehlende Stichproben.</p><button id="run">Tests ausführen</button><p id="summary">Noch nicht ausgeführt.</p><div id="results"></div><h2>Beispielausgabe</h2><pre id="output">–</pre>
+<script>
+"use strict";
+function estimate(matches,target,{halfLifeDays=180,priorMatches=5}={}){
+ const validDate=v=>typeof v==="string"&&Number.isFinite(Date.parse(v))&&/(Z|[+-]\d{2}:?\d{2})$/.test(v);
+ if(!Array.isArray(matches)||!target||!target.homeTeamId||!target.awayTeamId||!validDate(target.kickoffUtc)||target.homeTeamId===target.awayTeamId)throw Error("invalid input");
+ const cutoff=Date.parse(target.kickoffUtc);
+ const rows=matches.filter(m=>m&&m.status==="completed"&&validDate(m.dateUtc)&&Date.parse(m.dateUtc)<cutoff&&m.homeTeamId&&m.awayTeamId&&m.homeTeamId!==m.awayTeamId&&Number.isInteger(m.homeGoals)&&m.homeGoals>=0&&Number.isInteger(m.awayGoals)&&m.awayGoals>=0);
+ if(!rows.length)throw Error("no history");
+ const w=m=>Math.pow(.5,(cutoff-Date.parse(m.dateUtc))/(halfLifeDays*86400000));
+ let hg=0,ag=0,tw=0;for(const m of rows){hg+=m.homeGoals*w(m);ag+=m.awayGoals*w(m);tw+=w(m)}
+ const lh=hg/tw,la=ag/tw;if(lh<=0||la<=0)throw Error("invalid league baseline");
+ const map=new Map();const get=id=>{if(!map.has(id))map.set(id,{hs:0,hc:0,hw:0,as:0,ac:0,aw:0});return map.get(id)};
+ for(const m of rows){const z=w(m),h=get(m.homeTeamId),a=get(m.awayTeamId);h.hs+=m.homeGoals*z;h.hc+=m.awayGoals*z;h.hw+=z;a.as+=m.awayGoals*z;a.ac+=m.homeGoals*z;a.aw+=z}
+ const h=map.get(target.homeTeamId),a=map.get(target.awayTeamId);if(!h||!a)throw Error("unknown team");
+ const rate=(s,home)=>{const f=home?s.hs:s.as,c=home?s.hc:s.ac,n=home?s.hw:s.aw,lf=home?lh:la,lc=home?la:lh;return {attack:(f+priorMatches*lf)/((n+priorMatches)*lf),defence:(c+priorMatches*lc)/((n+priorMatches)*lc)}};
+ const hr=rate(h,true),ar=rate(a,false);
+ return {historical_match_count:rows.length,leagueHomeGoals:lh,leagueAwayGoals:la,homeAttack:hr.attack,homeDefence:hr.defence,awayAttack:ar.attack,awayDefence:ar.defence};
+}
+const target={homeTeamId:"A",awayTeamId:"B",kickoffUtc:"2026-11-20T18:00:00Z"};
+const matches=[
+ {dateUtc:"2026-11-01T18:00:00Z",status:"completed",homeTeamId:"A",awayTeamId:"B",homeGoals:3,awayGoals:0},
+ {dateUtc:"2026-10-25T18:00:00Z",status:"completed",homeTeamId:"B",awayTeamId:"A",homeGoals:1,awayGoals:1},
+ {dateUtc:"2026-10-18T18:00:00Z",status:"completed",homeTeamId:"A",awayTeamId:"C",homeGoals:2,awayGoals:0},
+ {dateUtc:"2026-10-11T18:00:00Z",status:"completed",homeTeamId:"C",awayTeamId:"B",homeGoals:0,awayGoals:2},
+ {dateUtc:"2026-11-22T18:00:00Z",status:"completed",homeTeamId:"A",awayTeamId:"C",homeGoals:8,awayGoals:0},
+ {dateUtc:"2026-11-03T18:00:00Z",status:"scheduled",homeTeamId:"A",awayTeamId:"B",homeGoals:9,awayGoals:0}
+];
+function assert(v,m){if(!v)throw Error(m)}
+const rows=[];function test(n,fn){try{fn();rows.push({n,ok:true})}catch(e){rows.push({n,ok:false,error:e.message})}}
+document.getElementById("run").onclick=()=>{
+ rows.length=0;
+ test("Nur abgeschlossene Spiele vor Anpfiff",()=>{const x=estimate(matches,target);assert(x.historical_match_count===4,"future/live excluded count wrong")});
+ test("Team-IDs eindeutig",()=>{let ok=false;try{estimate(matches,{...target,awayTeamId:"Z"})}catch{ok=true}assert(ok,"unknown team accepted")});
+ test("Angriffs-/Defensivwerte positiv",()=>{const x=estimate(matches,target);for(const k of ["homeAttack","homeDefence","awayAttack","awayDefence"])assert(x[k]>0,k)});
+ test("Wiederholbar bei gleichen Daten",()=>{const a=estimate(matches,target),b=estimate(matches,target);assert(JSON.stringify(a)===JSON.stringify(b),"non deterministic")});
+ test("Zukunftsspiel beeinflusst Schätzung nicht",()=>{const a=estimate(matches,target),b=estimate(matches.filter(m=>m.dateUtc!=="2026-11-22T18:00:00Z"),target);assert(a.homeAttack===b.homeAttack&&a.leagueHomeGoals===b.leagueHomeGoals,"future leakage")});
+ test("Nicht abgeschlossene Spiele ausgeschlossen",()=>{const a=estimate(matches,target),b=estimate(matches.filter(m=>m.status==="completed"),target);assert(a.homeAttack===b.homeAttack,"scheduled included")});
+ test("Keine Historie wird abgewiesen",()=>{let ok=false;try{estimate([] ,target)}catch{ok=true}assert(ok,"empty accepted")});
+ test("Startzeit ohne Zeitzone wird abgewiesen",()=>{let ok=false;try{estimate(matches,{...target,kickoffUtc:"2026-11-20T18:00:00"})}catch{ok=true}assert(ok,"timezone-less accepted")});
+ const root=document.getElementById("results");root.replaceChildren();rows.forEach(r=>{const el=document.createElement("div");el.className="test "+(r.ok?"pass":"fail");el.textContent=(r.ok?"BESTANDEN: ":"FEHLER: ")+r.n+(r.error?" – "+r.error:"");root.append(el)});
+ document.getElementById("summary").textContent=rows.filter(r=>r.ok).length+" / "+rows.length+" Tests bestanden";
+ document.getElementById("output").textContent=JSON.stringify(estimate(matches,target),null,2);
+};
+</script></body></html>
