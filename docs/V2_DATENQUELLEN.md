@@ -78,3 +78,48 @@ Die in 1.3.0 verwendeten Drittanbieter dürfen nicht ungeprüft als tragende Dat
 ## Wichtiger methodischer Hinweis
 
 Die in 1.3.0 vorhandenen Datenlieferanten liefern teils bereits fertige Prognosen. Diese Treffer dürfen nicht als Beleg für die Qualität eines neuen eigenen Modells verwendet werden. 2.0 muss eigene Modellwahrscheinlichkeiten unabhängig berechnen und anhand historischer, zeitlich sauberer Tests bewerten.
+
+
+## Ergänzende OpenLigaDB-Abdeckungsprüfung (18.11.2026)
+
+### Nachweisbare Saisonabdeckung 2026/27
+
+Ein unabhängiger technischer Prüfbericht vom 30.10.2026 dokumentiert erfolgreiche, schlüssellose API-Abrufe für:
+- Premier League: 380 Spiele in der Saison 2026/27; der Bericht nennt zugleich noch nicht nachgetragene Resultate an Spieltagen.
+- LaLiga: 380 Spiele.
+- Deutsche Bundesliga: 306 Spiele.
+
+Diese drei Wettbewerbe sind damit als **nachgewiesene API-Kandidaten** eingestuft, nicht als automatisch produktionsfreigegeben. Die dokumentierten Verzögerungen bei Ergebniseinträgen zeigen, dass Community-Pflege und Aktualität laufend überwacht werden müssen.
+
+Quelle des technischen Drittanbieter-Prüfberichts (Abrufdatum 30.10.2026): https://footballapis.com/p/openligadb/
+
+Die offizielle OpenLigaDB-API dokumentiert die Endpunkte `/getavailableleagues/{season}` und `/getmatchdata/{leagueShortcut}/{leagueSeason}`. Sie bestätigt die API-Funktion, aber nicht die Vollständigkeit jeder einzelnen Liga: https://api.openligadb.de/index.html
+
+### Status der zehn Zielwettbewerbe
+
+| Zielwettbewerb | OpenLigaDB-Status für 2026/27 |
+|---|---|
+| England – Premier League | Nachgewiesener API-Kandidat; Resultatverzögerungen beachten |
+| Spanien – LaLiga | Nachgewiesener API-Kandidat |
+| Deutschland – Bundesliga | Nachgewiesener API-Kandidat |
+| Italien – Serie A | Nicht ausreichend nachgewiesen |
+| Frankreich – Ligue 1 | Nicht ausreichend nachgewiesen |
+| Niederlande – Eredivisie | Nicht ausreichend nachgewiesen |
+| Portugal – Primeira Liga | Nicht ausreichend nachgewiesen |
+| Österreich – Bundesliga | Nicht ausreichend nachgewiesen |
+| Belgien – Pro League | Nicht ausreichend nachgewiesen |
+| Schweiz – Super League | Nicht ausreichend nachgewiesen |
+
+„Nicht ausreichend nachgewiesen“ bedeutet nicht, dass keine Daten existieren. Es bedeutet, dass für diese konkrete Saison keine belastbare, wiederholbare und vollständig geprüfte Abdeckung vorliegt. Es werden daher keine League-Shortcuts geraten und keine dieser Ligen automatisch aktiviert.
+
+### Freigabekriterien je Wettbewerb
+
+Ein Wettbewerb wird erst freigegeben, wenn wiederholte technische Abrufe Folgendes bestätigen:
+1. Eindeutige Liga-ID/League-Shortcut und Saison.
+2. Plausible Anzahl von Spielen und Teams für das Format der Liga.
+3. Vollständige Match-ID, Heim-/Auswärtsteam, Startzeit mit Zeitzonenbezug und Status.
+4. Aktualisierungszeitpunkt und erkennbare Ergebnisaktualität.
+5. Wiederholbarkeit der Abrufe sowie Einhaltung der API-Limits.
+6. Lizenz-/Attributionsanforderungen dokumentiert.
+
+Die drei nachgewiesenen Kandidaten erhalten ebenfalls erst nach einem echten Laufzeittest und einer Aktualitätskontrolle eine technische Produktionsfreigabe.
