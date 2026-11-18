@@ -49,7 +49,9 @@ async function scan(){
   const entries=[];
   for(const [year,list] of overviews){const l=findLeague(list,target);if(l)entries.push({year,league:l})}
   if(!entries.length){diagnostics.push(target.name+": keine eindeutige Liga-Zuordnung gefunden");continue}
-  const unique=new Map(entries.map(x=>[String(x.league.leagueShortcut||x.league.LeagueShortcut),x]));
+  // Keep every season: collapsing by league shortcut here would silently
+  // discard three of the four historical seasons needed by the model.
+  const unique=new Map(entries.map(x=>[String(x.league.leagueShortcut||x.league.LeagueShortcut)+"|"+x.year,x]));
   for(const {year,league} of unique.values()){
    const shortcut=league.leagueShortcut||league.LeagueShortcut;
    try{
