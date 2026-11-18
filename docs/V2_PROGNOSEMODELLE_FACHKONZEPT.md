@@ -209,3 +209,16 @@ Implementiert in `v2/src/models/football-pipeline.js`:
 Isolierte Pipeline-Tests: 8 Fälle angelegt. Die zugehörige Browser-Testseite liegt unter `v2-test/football-pipeline-test.html`. Die Tests sind noch nicht im echten Browser ausgeführt worden; die Modellkomponenten wurden zuvor separat im JavaScript-Laufzeittest geprüft.
 
 **Noch keine Produktionsfreigabe:** Die Pipeline benötigt reale, korrekt zugeordnete und lizenzkonforme historische Spieldaten. Die Mindestzahl 20 ist vorläufig und muss durch Walk-forward-Backtests je Liga geprüft werden. Es gibt noch keine Kalibrierung, keine Dixon-Coles-Korrektur und keine empirische Gütebewertung.
+
+
+## 12. Walk-forward-Backtest – Implementierung
+
+Datei: `v2/src/backtest/football-backtest.js`.
+
+- Chronologische Auswertung: Für jedes Testspiel werden ausschließlich frühere abgeschlossene Spiele als Historie verwendet.
+- Kennzahlen: Trefferquote, multiclass Brier Score und Log Loss; jeweils mit ausgewiesener Stichprobengröße.
+- Spiele ohne ausreichende Historie oder Team-Heim-/Auswärtsstichprobe werden gezählt und mit Ablehnungsgrund ausgewiesen.
+- Quoten werden nicht verwendet.
+- Ein Browser-Test mit synthetischen Daten liegt unter `v2-test/football-backtest-test.html`. Dieser prüft die technische Auswertung, nicht die reale Prognosegüte.
+
+**Grenze:** Ein Backtest ist erst aussagekräftig, wenn die historischen Resultate vollständig, korrekt zugeordnet und je Wettbewerb ausreichend umfangreich sind. Die Kennzahlen dürfen nicht über mehrere Ligen mit unterschiedlichen Datenqualitäten ungeprüft zusammengefasst werden. Vor einer Freigabe sind außerdem zeitliche Kalibrierung, Saisontrennung und ein Vergleich mit Baselines erforderlich.
