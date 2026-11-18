@@ -46,23 +46,26 @@ async function scan(){
  const todays=fixtures.filter(m=>m.status==="scheduled"&&dayKey(new Date(m.dateUtc))===dayKey(now));
  const historyByComp=new Map();
  for(const m of fixtures)if(m.status==="completed"&&Number.isInteger(m.homeGoals)&&Number.isInteger(m.awayGoals)){if(!historyByComp.has(m.competition))historyByComp.set(m.competition,[]);historyByComp.get(m.competition).push(m)}
- const picks=[];
+ const picks=[];const doublePicks=[];
  for(const m of todays){
   const history=historyByComp.get(m.competition)||[];
   try{
    const p=predictFootballMatch(history,{homeTeamId:m.homeTeamId,awayTeamId:m.awayTeamId,kickoffUtc:m.dateUtc},{minHistoryMatches:20});
    const probs=p.probabilities;const sorted=[["1","Heimsieg",probs.home_win],["X","Unentschieden",probs.draw],["2","Auswärtssieg",probs.away_win]].sort((a,b)=>b[2]-a[2]);
    const best=sorted[0];if(best[2]>=.65)picks.push({match:m,selection:best[1],probability:best[2],probabilities:probs,history:history.length});
+   for(const [selection,label,probability] of [["1X","Heim oder Unentschieden",probs.double_chance_1x],["X2","Unentschieden oder Auswärts",probs.double_chance_x2],["12","Kein Unentschieden",probs.double_chance_12]]) if(probability>=.65) doublePicks.push({match:m,selection:selection+" · "+label,probability,history:history.length});
   }catch(e){diagnostics.push(m.homeName+" – "+m.awayName+": keine Prognose ("+e.message+")")}
  }
  picks.sort((a,b)=>new Date(a.match.dateUtc)-new Date(b.match.dateUtc)||b.probability-a.probability);
- return {fixtures,todays,picks,completed,errors,diagnostics};
+ doublePicks.sort((a,b)=>new Date(a.match.dateUtc)-new Date(b.match.dateUtc)||b.probability-a.probability);
+ return {fixtures,todays,picks,doublePicks,completed,errors,diagnostics};
 }
 function render(result){
  $("summary").innerHTML="<div><b>"+result.todays.length+"</b><small>Spiele heute</small></div><div><b>"+result.completed+"</b><small>Historische Spiele</small></div><div><b>"+result.picks.length+"</b><small>Prognosen ≥ 65 %</small></div>";
  const root=$("results");root.replaceChildren();root.classList.toggle("empty",!result.picks.length);
  if(!result.picks.length){root.textContent="Keine belastbaren Prognosen für heute. Entweder fehlen Spiele, ausreichende Historie oder die 65-%-Schwelle wird nicht erreicht."}
  for(const p of result.picks){const el=document.createElement("article");el.className="card";el.innerHTML="<div class='meta'></div><h3></h3><div class='pick'></div><div class='prob'></div><div class='meta'></div>";const [meta,teams,pick,prob,foot]=el.children;meta.textContent=p.match.competition+" · "+fmt(p.match.dateUtc);teams.textContent=p.match.homeName+" – "+p.match.awayName;pick.textContent=p.selection;prob.textContent=(p.probability*100).toFixed(1)+" % Modellwahrscheinlichkeit";foot.textContent=p.history+" historische Spiele · Poisson-Modell · keine Quote verwendet";root.append(el)}
+ const dc=$("doubleResults");if(dc){dc.replaceChildren();dc.classList.toggle("empty",!result.doublePicks.length);if(!result.doublePicks.length)dc.textContent="Keine Doppelte-Chance-Prognose erreicht 65 %.";for(const p of result.doublePicks){const el=document.createElement("article");el.className="card";const meta=document.createElement("div");meta.className="meta";meta.textContent=p.match.competition+" · "+fmt(p.match.dateUtc);const teams=document.createElement("h3");teams.textContent=p.match.homeName+" – "+p.match.awayName;const pick=document.createElement("div");pick.className="pick";pick.textContent=p.selection;const prob=document.createElement("div");prob.className="prob";prob.textContent=(p.probability*100).toFixed(1)+" % Modellwahrscheinlichkeit";const foot=document.createElement("div");foot.className="meta";foot.textContent=p.history+" historische Spiele · aus 1X2 abgeleitet";el.append(meta,teams,pick,prob,foot);dc.append(el)}}
  $("diagnostics").textContent=result.diagnostics.join("\n");
 }
 $("scan").addEventListener("click",async()=>{const b=$("scan");b.disabled=true;$("status").textContent="Rufe Ligen, Spielpläne und historische Ergebnisse ab …";try{const r=await scan();render(r);$("status").textContent="Suchlauf abgeschlossen. "+r.fixtures.length+" Spiele geladen; "+r.errors+" Abruffehler. Keine künstlich erzeugten Tipps."}catch(e){$("status").textContent="Scannerfehler: "+e.message;$("diagnostics").textContent=e.stack||e.message}finally{b.disabled=false}});
