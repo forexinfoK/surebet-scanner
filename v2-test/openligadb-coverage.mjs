@@ -2,6 +2,7 @@ import { writeFile } from "node:fs/promises";
 
 const API = "https://api.openligadb.de";
 const SEASON = Number(process.env.SEASON || new Date().getUTCFullYear());
+if (!Number.isInteger(SEASON) || SEASON < 2000 || SEASON > 2100) throw new Error("Ungültiges Saisonstartjahr: " + SEASON);
 const NOW = Date.now();
 const TARGETS = [
   { name: "England – Premier League", aliases: ["Premier League"] },
