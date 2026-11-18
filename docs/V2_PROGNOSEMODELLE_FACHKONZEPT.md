@@ -161,7 +161,23 @@ Quoten, falls später vorhanden, werden separat angezeigt:
 - [ ] Datenquellen technisch im Browser verifiziert
 - [ ] Ligen-/Tourumfang verbindlich festgelegt
 - [ ] Lizenzentscheidung dokumentiert
-- [ ] Baseline implementiert
+- [x] Erste isolierte Poisson-Baseline implementiert (Modul 0.1.0; noch ohne gelernte Ligaparameter und ohne reale Matchdaten)
 - [ ] Walk-forward-Backtest durchgeführt
 - [ ] Paralleltest gegen Version 1.3.0 abgeschlossen
 - [ ] Nutzerfreigabe vor Veröffentlichung
+
+
+## 9. Implementierungsstand – Fußball-Poisson-Baseline (18.11.2026)
+
+Implementiert in `v2/src/models/football-poisson.js`:
+- Erwartete Heim- und Auswärtstore aus Ligator-Durchschnitt sowie Heim-/Auswärts-Offensiv- und Defensivfaktoren.
+- Unabhängige Poisson-Torverteilungen mit numerischer Restmassen-Behandlung.
+- Ableitung von 1X2 und daraus 1X, X2 und 12.
+- Modellfunktion benötigt keine Wettquoten und gibt explizit `odds_used: false` zurück.
+- Ungültige oder nicht positive Eingabeparameter werden abgewiesen.
+
+Isolierte Funktionstests: 8/8 bestanden (Wahrscheinlichkeitssumme, alle drei Doppelte-Chance-Ableitungen, Heimvorteil-Sensitivität, Quotenunabhängigkeit, ungültige Eingaben).
+
+Testseite: `v2-test/football-poisson-test.html` (synthetische Werte, keine realen Spiele).
+
+**Wichtige Grenze:** Das ist die mathematische Modell-Baseline, noch kein trainiertes oder validiertes Prognosemodell. Es fehlen echte, lizenzkonforme historische Ergebnisdaten, zeitlich korrekte Teamstärken pro Liga/Saison, Walk-forward-Backtest und Kalibrierung. Die Beispielwahrscheinlichkeiten aus dem Test sind keine Prognosen und dürfen nicht als Tipps angezeigt werden.
