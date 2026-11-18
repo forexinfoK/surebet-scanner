@@ -99,3 +99,36 @@ test("OpenLigaDB: missing source update timestamp is visible as quality reason",
   assert.equal(row.homeGoals,1);
   assert.ok(row.data_quality.reasons.includes("SOURCE_TIMESTAMP_MISSING"));
 });
+
+test("Tennis-Elo ignoriert Resultate nach dem Prognosezeitpunkt",()=>{
+  const history=[];
+  for(let i=0;i<30;i++) history.push({
+    dateUtc:new Date(Date.UTC(2024,0,1+i,12)).toISOString(),
+    status:"completed",tour:"ATP",winnerId:i%2?"A":"B",loserId:i%2?"B":"A",surface:"hard"
+  });
+  const target={tour:"ATP",playerAId:"A",playerBId:"B",startUtc:"2025-01-01T12:00:00Z"};
+  const baseline=calculateTennisElo(history,target);
+  const withFuture=calculateTennisElo([...history,{
+    dateUtc:"2025-02-01T12:00:00Z",status:"completed",tour:"ATP",
+    winnerId:"A",loserId:"B",surface:"hard"
+  }],target);
+  assert.deepEqual(withFuture.ratings,baseline.ratings);
+  assert.equal(withFuture.data_quality.historical_matches,baseline.data_quality.historical_matches);
+});
+
+test("PWA-Manifest enthält mobile Installationsmetadaten",async()=>{
+  const {readFile}=await import("node:fs/promises");
+  const manifest=JSON.parse(await readFile(new URL("../v2/manifest.webmanifest",import.meta.url),"utf8"));
+  assert.equal(manifest.display,"standalone");
+  assert.equal(manifest.lang,"de-AT");
+  assert.ok(manifest.icons.length>0);
+  assert.ok(manifest.start_url);
+});
+
+test("Service Worker cached V2 Shell, aber keine fremden API-Requests",async()=>{
+  const {readFile}=await import("node:fs/promises");
+  const sw=await readFile(new URL("../v2/sw.js",import.meta.url),"utf8");
+  assert.match(sw,/surebet-v2-shell/);
+  assert.match(sw,/url\.origin !== self\.location\.origin/);
+  assert.match(sw,/self\.clients\.claim/);
+});
