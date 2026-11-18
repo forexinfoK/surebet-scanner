@@ -178,7 +178,7 @@ test("OpenFootball-Parser liest Ergebnisse und setzt Saisonjahr bei Jahreswechse
   const source=`= France | Ligue 1 2025/26
 # Matches  306
 
-Fri Aug 15 2025
+Fri Aug 15 2025 19:00 UTC+0 @ Stadium
   20:45   Rennes  1-0 (0-0)  Olympique Marseille
   21:00   Lens  2-0 (1-0)  Olympique Lyonnais
   20:00  Manchester United FC v Fulham FC  1-0 (0-0)
