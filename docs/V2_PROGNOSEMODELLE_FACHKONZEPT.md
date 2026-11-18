@@ -181,3 +181,17 @@ Isolierte Funktionstests: 8/8 bestanden (Wahrscheinlichkeitssumme, alle drei Dop
 Testseite: `v2-test/football-poisson-test.html` (synthetische Werte, keine realen Spiele).
 
 **Wichtige Grenze:** Das ist die mathematische Modell-Baseline, noch kein trainiertes oder validiertes Prognosemodell. Es fehlen echte, lizenzkonforme historische Ergebnisdaten, zeitlich korrekte Teamstärken pro Liga/Saison, Walk-forward-Backtest und Kalibrierung. Die Beispielwahrscheinlichkeiten aus dem Test sind keine Prognosen und dürfen nicht als Tipps angezeigt werden.
+
+
+## 10. Implementierungsstand – Teamstärken-Schätzung (18.11.2026)
+
+Implementiert in `v2/src/models/football-team-strength.js`:
+- gewichtete Ligator-Durchschnitte mit exponentieller Halbwertszeit (Standard 180 Tage);
+- getrennte Heim-/Auswärts-Offensiv- und Defensivwerte;
+- Glättung über einen Liga-Durchschnitts-Prior (Standardgewicht fünf Spiele);
+- ausschließlich abgeschlossene Spiele mit Startzeit strikt vor dem Zielanpfiff;
+- fehlende Teamhistorie, ungültige Daten und Zeitangaben ohne Zeitzone führen zum Abbruch.
+
+Isolierte Funktionstests: 8/8 bestanden, einschließlich Prüfung auf Zukunftsdaten-Leakage. Testseite: `v2-test/football-team-strength-test.html`.
+
+**Grenze:** Die Tests verwenden synthetische Fixtures. Die Schätzung ist noch nicht mit realen Ligadaten validiert. Sie setzt außerdem voraus, dass die übergebenen historischen Spiele derselben Wettbewerb-/Saisonpopulation angehören und Team-IDs stabil zugeordnet sind. Der Parameter `priorMatches` ist eine technische Glättungseinstellung, noch nicht anhand eines Backtests optimiert.
