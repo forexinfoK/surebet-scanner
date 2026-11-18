@@ -106,13 +106,13 @@ async function main() {
     seasons:SEASONS,
     competition_files:reports,
     input_match_count:allMatches.length,
-    backtest: {...backtest, skipped_reasons_detail: backtest.skipped_reasons}
+    backtest
   };
   await writeFile("openfootball-backtest.json",JSON.stringify(result,null,2)+"\n");
   const summary = Object.entries(backtest.by_competition).map(([id,v]) =>
     `| ${id} | ${v.sample_size} | ${v.hit_rate==null?"—":(v.hit_rate*100).toFixed(1)+" %"} | ${v.brier_score==null?"—":v.brier_score.toFixed(4)} | ${v.log_loss==null?"—":v.log_loss.toFixed(4)} |`);
   const skippedByCompetition = {};
-  for (const item of backtest.skipped_reasons_detail || []) {
+  for (const item of backtest.skipped_details || []) {
     skippedByCompetition[item.competition] ||= {};
     skippedByCompetition[item.competition][item.reason] = (skippedByCompetition[item.competition][item.reason] || 0) + 1;
   }
