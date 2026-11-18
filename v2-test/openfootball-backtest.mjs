@@ -3,16 +3,16 @@ import { runFootballWalkForward } from "../v2/src/backtest/football-backtest.js"
 
 const SEASONS = ["2024-25", "2025-26"];
 const COMPETITIONS = [
-  { id:"eng-prem", name:"England Premier League", urls: s => `https://raw.githubusercontent.com/openfootball/england/master/${s}/1-premierleague${s === "2025-26" ? "-full" : ""}.txt` },
-  { id:"esp-laliga", name:"Spain LaLiga", urls: s => `https://raw.githubusercontent.com/openfootball/espana/master/${s}/1-liga${s === "2025-26" ? "-full" : ""}.txt` },
-  { id:"ger-bundesliga", name:"Germany Bundesliga", urls: s => `https://raw.githubusercontent.com/openfootball/deutschland/master/${s}/1-bundesliga${s === "2025-26" ? "-full" : ""}.txt` },
-  { id:"ita-serie-a", name:"Italy Serie A", urls: s => `https://raw.githubusercontent.com/openfootball/italy/master/${s}/1-seriea${s === "2025-26" ? "-full" : ""}.txt` },
-  { id:"fra-ligue-1", name:"France Ligue 1", urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/france/${s}_fr1${s === "2025-26" ? "-full" : ""}.txt` },
-  { id:"ned-eredivisie", name:"Netherlands Eredivisie", urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/netherlands/${s}_nl1.txt` },
-  { id:"por-primeira", name:"Portugal Primeira Liga", urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/portugal/${s}_pt1.txt` },
-  { id:"aut-bundesliga", name:"Austria Bundesliga", urls: s => `https://raw.githubusercontent.com/openfootball/austria/master/${s}/1-bundesliga${s === "2025-26" ? "-full" : ""}.txt` },
-  { id:"bel-pro-league", name:"Belgium Pro League", urls: s => `https://raw.githubusercontent.com/openfootball/belgium/master/${s}/be1.txt` },
-  { id:"sui-super-league", name:"Switzerland Super League", urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/switzerland/${s}_ch1.txt` }
+  { id:"eng-prem", name:"England Premier League", minimumSeasonMatches:350, urls: s => `https://raw.githubusercontent.com/openfootball/england/master/${s}/1-premierleague${s === "2025-26" ? "-full" : ""}.txt` },
+  { id:"esp-laliga", name:"Spain LaLiga", minimumSeasonMatches:350, urls: s => `https://raw.githubusercontent.com/openfootball/espana/master/${s}/1-liga${s === "2025-26" ? "-full" : ""}.txt` },
+  { id:"ger-bundesliga", name:"Germany Bundesliga", minimumSeasonMatches:280, urls: s => `https://raw.githubusercontent.com/openfootball/deutschland/master/${s}/1-bundesliga${s === "2025-26" ? "-full" : ""}.txt` },
+  { id:"ita-serie-a", name:"Italy Serie A", minimumSeasonMatches:350, urls: s => `https://raw.githubusercontent.com/openfootball/italy/master/${s}/1-seriea${s === "2025-26" ? "-full" : ""}.txt` },
+  { id:"fra-ligue-1", name:"France Ligue 1", minimumSeasonMatches:280, urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/france/${s}_fr1${s === "2025-26" ? "-full" : ""}.txt` },
+  { id:"ned-eredivisie", name:"Netherlands Eredivisie", minimumSeasonMatches:280, urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/netherlands/${s}_nl1.txt` },
+  { id:"por-primeira", name:"Portugal Primeira Liga", minimumSeasonMatches:280, urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/portugal/${s}_pt1.txt` },
+  { id:"aut-bundesliga", name:"Austria Bundesliga", minimumSeasonMatches:180, urls: s => `https://raw.githubusercontent.com/openfootball/austria/master/${s}/1-bundesliga${s === "2025-26" ? "-full" : ""}.txt` },
+  { id:"bel-pro-league", name:"Belgium Pro League", minimumSeasonMatches:250, urls: s => `https://raw.githubusercontent.com/openfootball/belgium/master/${s}/be1.txt` },
+  { id:"sui-super-league", name:"Switzerland Super League", minimumSeasonMatches:200, urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/switzerland/${s}_ch1.txt` }
 ];
 
 const MONTHS = new Map(["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((m,i)=>[m,i]));
@@ -86,11 +86,13 @@ async function main() {
       try {
         const source = await download(url);
         const matches = parseFootballTxt(source,competition,season);
-        if (matches.length) {
+        if (matches.length && matches.length >= competition.minimumSeasonMatches) {
           allMatches.push(...matches);
           loaded += matches.length;
-          reports.push({competition:competition.name,competition_id:competition.id,season,status:"LOADED",matches:matches.length,source:url});
-        } else reports.push({competition:competition.name,competition_id:competition.id,season,status:"EMPTY_OR_UNPARSED",matches:0,source:url});
+          reports.push({competition:competition.name,competition_id:competition.id,season,status:"LOADED",matches:matches.length,minimum_required:competition.minimumSeasonMatches,source:url});
+        } else if (matches.length) {
+          reports.push({competition:competition.name,competition_id:competition.id,season,status:"LOW_COVERAGE_EXCLUDED",matches:matches.length,minimum_required:competition.minimumSeasonMatches,source:url});
+        } else reports.push({competition:competition.name,competition_id:competition.id,season,status:"EMPTY_OR_UNPARSED",matches:0,minimum_required:competition.minimumSeasonMatches,source:url});
       } catch (error) {
         errors.push(season+": "+error.message);
         reports.push({competition:competition.name,competition_id:competition.id,season,status:"UNAVAILABLE",matches:0,source:url,error:error.message});
