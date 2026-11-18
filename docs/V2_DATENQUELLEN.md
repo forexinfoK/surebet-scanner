@@ -41,7 +41,7 @@ Die in 1.3.0 verwendeten Drittanbieter dürfen nicht ungeprüft als tragende Dat
 
 ### Jeff Sackmann ATP/WTA – wertvolle historische Daten, aber Lizenzschranke
 - ATP-/WTA-Matchdaten und Ranglisten sind in öffentlichen Archiven bis 2026 auffindbar.
-- Lizenz: CC BY-NC-SA 4.0. Erfordert Namensnennung und Weitergabe abgeleiteter Daten/Arbeiten unter gleicher Lizenz; nicht-kommerzielle Nutzung בלבד.
+- Lizenz: CC BY-NC-SA 4.0. Erfordert Namensnennung und Weitergabe abgeleiteter Daten/Arbeiten unter gleicher Lizenz; nicht-kommerzielle Nutzung.
 - Für ein privates, nicht-kommerzielles Forschungs-/Testmodell eventuell geeignet, aber vor einer Veröffentlichung oder kommerziellen Nutzung rechtlich gesondert zu prüfen.
 - Aktuelle Archivübersicht: https://github.com/Aneeshers/tennis-sackmann-archive
 - Lizenz: https://github.com/Aneeshers/tennis-sackmann-archive/blob/main/LICENSE
