@@ -110,7 +110,7 @@ async function main() {
   };
   await writeFile("openfootball-backtest.json",JSON.stringify(result,null,2)+"\n");
   const summary = Object.entries(backtest.by_competition).map(([id,v]) =>
-    `| ${id} | ${v.sample_size} | ${v.hit_rate==null?"—":(v.hit_rate*100).toFixed(1)+" %"} | ${v.brier_score==null?"—":v.brier_score.toFixed(4)} | ${v.log_loss==null?"—":v.log_loss.toFixed(4)} |`);
+    `| ${id} | ${v.sample_size} | ${v.hit_rate==null?"—":(v.hit_rate*100).toFixed(1)+" %"} | ${v.brier_score==null?"—":v.brier_score.toFixed(4)} | ${v.log_loss==null?"—":v.log_loss.toFixed(4)} | ${v.qualified_picks.sample_size} | ${v.qualified_picks.hit_rate==null?"—":(v.qualified_picks.hit_rate*100).toFixed(1)+" %"} |`);
   const skippedByCompetition = {};
   for (const item of backtest.skipped_details || []) {
     skippedByCompetition[item.competition] ||= {};
@@ -133,9 +133,13 @@ async function main() {
     ...fileRows,
     "",
     "## Walk-forward metrics",
-    "| Competition ID | Evaluated matches | Hit rate | Brier score | Log loss |",
-    "|---|---:|---:|---:|---:|",
+    "| Competition ID | Evaluated matches | Hit rate | Brier score | Log loss | ≥65% picks | Pick hit rate |",
+    "|---|---:|---:|---:|---:|---:|---:|",
     ...summary,
+    "",
+    "",
+    "## All qualified picks (max 1X2 probability ≥65%)",
+    `Sample: ${backtest.qualified_picks.sample_size}; coverage: ${backtest.qualified_picks.coverage==null?"—":(backtest.qualified_picks.coverage*100).toFixed(1)+" %"}; hit rate: ${backtest.qualified_picks.hit_rate==null?"—":(backtest.qualified_picks.hit_rate*100).toFixed(1)+" %"}; Brier: ${backtest.qualified_picks.brier_score==null?"—":backtest.qualified_picks.brier_score.toFixed(4)}; Log loss: ${backtest.qualified_picks.log_loss==null?"—":backtest.qualified_picks.log_loss.toFixed(4)}`,
     "",
     "## Skipped match reasons",
     "| Competition ID | Reasons |",
