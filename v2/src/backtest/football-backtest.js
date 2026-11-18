@@ -35,6 +35,6 @@ function runFootballWalkForward(matches,options={}){
   const subset=rows.filter(r=>r.competition===competition),count=subset.length;
   byCompetition[competition]={sample_size:count,hit_rate:count?subset.filter(r=>r.hit).length/count:null,brier_score:count?subset.reduce((s,r)=>s+r.brier,0)/count:null,log_loss:count?subset.reduce((s,r)=>s+r.log_loss,0)/count:null};
  }
- return {method:"chronological competition-isolated walk-forward",model:"football-poisson-baseline",odds_used:false,input_matches:matches.length,valid_matches:valid.length,evaluated:{sample_size:n,hit_rate:n?rows.filter(r=>r.hit).length/n:null,brier_score:n?rows.reduce((s,r)=>s+r.brier,0)/n:null,log_loss:n?rows.reduce((s,r)=>s+r.log_loss,0)/n:null},by_competition:byCompetition,skipped_count:skipped.length,skipped_reasons:skipped.reduce((a,x)=>(a[x.reason]=(a[x.reason]||0)+1,a),{}),rows};
+ return {method:"chronological competition-isolated walk-forward",model:"football-poisson-baseline",odds_used:false,input_matches:matches.length,valid_matches:valid.length,evaluated:{sample_size:n,hit_rate:n?rows.filter(r=>r.hit).length/n:null,brier_score:n?rows.reduce((s,r)=>s+r.brier,0)/n:null,log_loss:n?rows.reduce((s,r)=>s+r.log_loss,0)/n:null},by_competition:byCompetition,skipped_count:skipped.length,skipped_reasons:skipped.reduce((a,x)=>(a[x.reason]=(a[x.reason]||0)+1,a),{}),skipped_details:skipped,rows};
 }
 export {runFootballWalkForward};
