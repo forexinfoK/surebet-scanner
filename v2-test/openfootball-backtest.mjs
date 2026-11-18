@@ -43,7 +43,7 @@ function parseFootballTxt(source, competition, season) {
     }
     const m = line.match(MATCH_LINE);
     if (!m || !currentDate) continue;
-    const home = m[2].trim(), away = m[6].trim();
+    const home = m[2].trim(), away = m[5].trim();
     const homeGoals = Number(m[3]), awayGoals = Number(m[4]);
     if (!home || !away || teamKey(home) === teamKey(away) ||
         !Number.isInteger(homeGoals) || !Number.isInteger(awayGoals)) continue;
