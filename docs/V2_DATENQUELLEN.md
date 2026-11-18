@@ -123,3 +123,43 @@ Ein Wettbewerb wird erst freigegeben, wenn wiederholte technische Abrufe Folgend
 6. Lizenz-/Attributionsanforderungen dokumentiert.
 
 Die drei nachgewiesenen Kandidaten erhalten ebenfalls erst nach einem echten Laufzeittest und einer Aktualitätskontrolle eine technische Produktionsfreigabe.
+
+
+## Ergänzende Tennisquellenprüfung (18.11.2026)
+
+### TennisMyLife / TML-Database – aktueller ATP-Datenkandidat, aber mit Nutzungsbeschränkung
+
+- Die öffentliche TML-Database dokumentiert aktuelle ATP-Matchdaten und historische Ergebnisse; das GitHub-Repository weist darauf hin, dass die laufend aktualisierte Datenbank inzwischen auf die Website stats.tennismylife.org verlagert wurde.
+- Ein öffentliches 2026-CSV ist auffindbar und enthält unter anderem Turnier, Belag, Sieger-/Verlierer-IDs, Namen, Matchdatum, Runde und Matchstatistiken.
+- Die aktuellen öffentlichen Nutzungsbedingungen beschränken die Datensätze auf persönliche, Bildungs- und nicht-kommerzielle Forschungszwecke. Weiterverteilung oder Weiterverkauf der Rohdaten ist nicht gestattet. Kommerzielle Nutzung, einschließlich Training/Validierung statistischer Prognosemodelle für kommerzielle Dienste oder Monetarisierung von Modellprognosen, benötigt vorherige ausdrückliche schriftliche Genehmigung.
+- Der öffentliche Hinweis sagt ausdrücklich, dass ein freier Download keine kommerziellen Nutzungsrechte verleiht.
+- Daher ist TML **kein uneingeschränkt freigegebener Datenlieferant** für eine öffentlich oder kommerziell genutzte Scanner-Version. Eine private, nicht-kommerzielle Verwendung wäre gesondert anhand der aktuellen Bedingungen zu beurteilen.
+- Wichtige Quellen: https://tennismylife.github.io/TML-Database/ ; https://github.com/Tennismylife/TML-Database ; https://github.com/Tennismylife/TML-Database/blob/master/2026.csv
+
+### Kostenlose Tennis-APIs – Einschränkung
+
+- Eine aktuelle technische Marktübersicht vom 02.11.2026 kommt zu dem Ergebnis, dass ATP und WTA keine öffentlich dokumentierte, frei nutzbare offizielle Entwickler-API anbieten.
+- In der Übersicht werden ESPN- und theScore-Endpunkte als technisch erreichbare, schlüssellose Datenquellen genannt. Das ist jedoch keine Lizenzfreigabe und keine Zusage stabiler Verfügbarkeit. Bei WTA-Daten wird automatisierter Zugriff auf die offizielle Website ausdrücklich als durch Nutzungsbedingungen eingeschränkt beschrieben.
+- Eine erreichbare URL oder ein öffentliches JSON-Endpoint ist keine ausreichende Erlaubnis für automatisierte Nutzung oder Weiterveröffentlichung.
+- Quelle: https://sportsapis.dev/tennis-api
+
+### LiveTennisAPI – transparenter, aber begrenzter Free-Tarif
+
+- Die öffentliche Dokumentation beschreibt einen Free-Tarif mit API-Key für aktuelle und kommende Spiele, Live-Spielstände, Spieler, Fixtures und Turnierkatalog.
+- Historische Ergebnislisten sind grundsätzlich einem höheren Tarif vorbehalten; der Free-Tarif bietet nur einen begrenzten monatlichen historischen Testzugriff. Damit reicht er nicht für einen belastbaren, tourweiten Elo-Backtest aus.
+- Das kann ein möglicher Fixture-/Live-Status-Kandidat sein, ist aber keine vollständige kostenlose Datenbasis für historische Modellvalidierung.
+- Quelle: https://github.com/livetennisapi
+
+### Tennis.esp.br – nützlicher Transparenz-/Benchmark-Kandidat, kein ungeprüfter Feed
+
+- Die Website dokumentiert eine Kombination aus Sackmann/Tennis Abstract (CC BY-NC-SA 4.0) für historische Daten, TennisMyLife für aktuelle ATP/WTA-Saisonmatches und offiziellen WTA-Rankings.
+- Die Datenherkunft und der letzte Import werden transparent ausgewiesen. Die Seite selbst ist jedoch kein Nachweis einer frei nutzbaren API für den Scanner.
+- Quelle: https://tennis.esp.br/en/data
+
+### Konsequenz für die Tennisintegration
+
+1. Die vorhandene Elo-Baseline bleibt eine reine Rechenkomponente; sie wird nicht mit ungeprüften Spielplan- oder Ergebnisdaten gespeist.
+2. Für private, nicht-kommerzielle Entwicklung kann eine Nutzung von Sackmann-/TML-Daten geprüft werden, aber nur mit korrekter Attribution und unter Einhaltung der jeweiligen NC-/ShareAlike- bzw. TML-Bedingungen.
+3. Für eine öffentlich erreichbare oder später kommerzielle Anwendung wird vor Integration eine Datenquelle mit ausdrücklich passenden Nutzungsrechten benötigt.
+4. ESPN/theScore-Endpunkte werden nicht als Produktionsquelle fest verdrahtet, solange Rechte, Schema und Verfügbarkeit nicht ausreichend dokumentiert sind.
+5. Die Tennisoberfläche wird erst freigegeben, wenn ATP und WTA getrennt mit aktuellen Fixtures, eindeutigen Spieler-IDs, Startzeit/Status und ausreichend zeitlich korrekter Matchhistorie versorgt werden können.
