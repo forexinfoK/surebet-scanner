@@ -61,10 +61,14 @@ function normalizeMatch(match, options = {}) {
   if ((match?.matchID ?? match?.MatchID) == null) reasons.push("MISSING_EVENT_ID");
   if (!start) reasons.push("MISSING_START_TIME");
   if (!home || !away) reasons.push("MISSING_PARTICIPANT");
+  if (homeTeamId == null || String(homeTeamId).trim() === "" ||
+      awayTeamId == null || String(awayTeamId).trim() === "") reasons.push("MISSING_TEAM_ID");
+  if (homeTeamId != null && awayTeamId != null &&
+      String(homeTeamId) === String(awayTeamId)) reasons.push("DUPLICATE_TEAM_ID");
   if (status === "unknown") reasons.push("UNKNOWN_STATUS");
 
   const hardFailure = reasons.some(code =>
-    ["MISSING_EVENT_ID", "MISSING_START_TIME", "MISSING_PARTICIPANT", "UNKNOWN_STATUS"].includes(code)
+    ["MISSING_EVENT_ID", "MISSING_START_TIME", "MISSING_PARTICIPANT", "MISSING_TEAM_ID", "DUPLICATE_TEAM_ID", "UNKNOWN_STATUS"].includes(code)
   );
   const sourceUpdatedAtUtc = asUtc(match?.lastUpdateDateTime ?? match?.LastUpdateDateTime);
   if (!sourceUpdatedAtUtc) reasons.push("SOURCE_TIMESTAMP_MISSING");
