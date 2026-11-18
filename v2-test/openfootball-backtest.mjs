@@ -3,11 +3,11 @@ import { runFootballWalkForward } from "../v2/src/backtest/football-backtest.js"
 
 const SEASONS = ["2024-25", "2025-26"];
 const COMPETITIONS = [
-  { id:"eng-prem", name:"England Premier League", urls: s => `https://raw.githubusercontent.com/openfootball/england/master/${s}/1-premierleague-full.txt` },
-  { id:"esp-laliga", name:"Spain LaLiga", urls: s => `https://raw.githubusercontent.com/openfootball/espana/master/${s}/1-liga-full.txt` },
-  { id:"ger-bundesliga", name:"Germany Bundesliga", urls: s => `https://raw.githubusercontent.com/openfootball/deutschland/master/${s}/1-bundesliga-full.txt` },
-  { id:"ita-serie-a", name:"Italy Serie A", urls: s => `https://raw.githubusercontent.com/openfootball/italy/master/${s}/1-seriea-full.txt` },
-  { id:"fra-ligue-1", name:"France Ligue 1", urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/france/${s}_fr1-full.txt` },
+  { id:"eng-prem", name:"England Premier League", urls: s => `https://raw.githubusercontent.com/openfootball/england/master/${s}/1-premierleague${s === "2025-26" ? "-full" : ""}.txt` },
+  { id:"esp-laliga", name:"Spain LaLiga", urls: s => `https://raw.githubusercontent.com/openfootball/espana/master/${s}/1-liga${s === "2025-26" ? "-full" : ""}.txt` },
+  { id:"ger-bundesliga", name:"Germany Bundesliga", urls: s => `https://raw.githubusercontent.com/openfootball/deutschland/master/${s}/1-bundesliga${s === "2025-26" ? "-full" : ""}.txt` },
+  { id:"ita-serie-a", name:"Italy Serie A", urls: s => `https://raw.githubusercontent.com/openfootball/italy/master/${s}/1-seriea${s === "2025-26" ? "-full" : ""}.txt` },
+  { id:"fra-ligue-1", name:"France Ligue 1", urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/france/${s}_fr1${s === "2025-26" ? "-full" : ""}.txt` },
   { id:"ned-eredivisie", name:"Netherlands Eredivisie", urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/netherlands/${s}_nl1.txt` },
   { id:"por-primeira", name:"Portugal Primeira Liga", urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/portugal/${s}_pt1.txt` },
   { id:"aut-bundesliga", name:"Austria Bundesliga", urls: s => `https://raw.githubusercontent.com/openfootball/austria/master/${s}/1-bundesliga-full.txt` },
