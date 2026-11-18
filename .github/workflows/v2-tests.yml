@@ -22,4 +22,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: node --check v2-test/openligadb-coverage.mjs
       - run: node --test v2-test/node-tests.mjs
