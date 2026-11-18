@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Surebet Scanner 2.0 – OpenLigaDB Adapter-Test</title>
+<style>
+body{font:16px system-ui;max-width:1050px;margin:28px auto;padding:0 16px;line-height:1.5}
+button,select,input{font:inherit;padding:8px}button{cursor:pointer}.panel,.item{border:1px solid #8886;border-radius:10px;padding:12px;margin:12px 0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.ok{color:#16834a}.bad{color:#c43b3b}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto}
+small{opacity:.75}
+</style></head><body>
+<h1>OpenLigaDB – isolierter Adaptertest</h1>
+<p class="panel"><b>Nur Entwicklungszweig v2.0.</b> Ruft OpenLigaDB live ab. Keine Tipps, keine Prognosen, keine Speicherung. Die stabile Version 1.3.0 wird nicht berührt.</p>
+<div class="row">
+<label>Saison <input id="season" type="number" value="2026" min="2000" max="2100"></label>
+<button id="discover">Verfügbare Ligen laden</button>
+<select id="league"><option value="">Zuerst Ligen laden</option></select>
+<button id="load" disabled>Spiele dieser Liga laden</button>
+</div>
+<div id="summary" class="panel">Noch kein Test ausgeführt.</div>
+<h2>Ergebnisse</h2><div id="results"></div>
+<h2>Diagnose / Rohdaten</h2><pre id="raw">—</pre>
+<script type="module">
+import {getAvailableLeagues,getLeagueMatches,getTodayScheduledMatches} from "./openligadb-adapter.js";
+const $=id=>document.getElementById(id);
+let leagues=[];
+function show(title,detail,ok=true){const d=document.createElement("div");d.className="item";const b=document.createElement("b");b.className=ok?"ok":"bad";b.textContent=(ok?"OK: ":"PRÜFEN: ")+title;const p=document.createElement("p");p.textContent=detail;d.append(b,p);$("results").prepend(d);}
+$("discover").onclick=async()=>{
+ $("summary").textContent="Ligen werden abgerufen …";$("results").replaceChildren();$("load").disabled=true;
+ try{
+  const season=Number($("season").value);leagues=await getAvailableLeagues(season);
+  $("league").replaceChildren();
+  for(const l of leagues){
+   const o=document.createElement("option");o.value=l.LeagueShortcut||"";o.textContent=[l.LeagueName,l.LeagueShortcut,l.LeagueSeason].filter(Boolean).join(" – ");$("league").append(o);
+  }
+  const austria=leagues.find(l=>/österreich|austria|bundesliga/i.test((l.LeagueName||"")+" "+(l.LeagueShortcut||"")));
+  if(austria)$("league").value=austria.LeagueShortcut;
+  $("load").disabled=!leagues.length;
+  $("summary").textContent=leagues.length+" Wettbewerbe für Saison "+season+" geliefert. Österreichische Bundesliga automatisch vorausgewählt, falls gefunden.";
+  show("Ligaabfrage",leagues.length+" Einträge empfangen. Abdeckung muss anhand der Liste geprüft werden.",leagues.length>0);
+  $("raw").textContent=JSON.stringify(leagues,null,2);
+ }catch(e){$("summary").textContent="Fehler: "+e.message;show("Ligaabfrage fehlgeschlagen",e.message,false);}
+};
+$("load").onclick=async()=>{
+ $("summary").textContent="Spielplan wird geladen …";
+ try{
+  const shortcut=$("league").value,season=Number($("season").value);
+  const matches=await getLeagueMatches(shortcut,season);
+  const now=new Date(),today=getTodayScheduledMatches(matches,now);
+  const counts=matches.reduce((a,m)=>(a[m.status]=(a[m.status]||0)+1,a),{});
+  $("summary").textContent=matches.length+" Matches empfangen; "+today.length+" zukünftige angesetzte Spiele heute (Europe/Vienna).";
+  show("Spielplan",JSON.stringify({wettbewerb:$("league").selectedOptions[0]?.textContent,gesamt:matches.length,statusverteilung:counts,heute_zukuenftig:today.length},null,2),matches.length>0);
+  const unknown=matches.filter(m=>m.status==="unknown").length;
+  show("Status-Sicherheit",unknown+" Spiele mit unbekanntem Status werden nicht als angesetzt behandelt. OpenLigaDB liefert bei MatchIsFinished=false für bereits gestartete Spiele keinen sicheren Live-Status im Adapter; diese bleiben daher unknown.",true);
+  $("raw").textContent=JSON.stringify({sample:matches.slice(0,5),today},null,2);
+ }catch(e){$("summary").textContent="Fehler: "+e.message;show("Spielplanabfrage fehlgeschlagen",e.message,false);}
+};
+</script></body></html>
