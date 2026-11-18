@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Surebet Scanner 2.0 – OpenLigaDB Adaptertest</title>
+<style>
+body{font:16px system-ui,sans-serif;max-width:950px;margin:28px auto;padding:0 16px;line-height:1.5}
+button{padding:10px 14px;cursor:pointer}.note,.item{border:1px solid #8887;border-radius:9px;padding:12px;margin:12px 0}
+.pass{color:#16834a}.fail{color:#c33}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:400px;overflow:auto}
+</style>
+</head>
+<body>
+<h1>OpenLigaDB – Adaptertest 2.0</h1>
+<p class="note"><b>Isolierter Test.</b> Keine Verbindung zur veröffentlichten Version 1.3.0. Der Test verwendet zunächst simulierte Antworten. Der Live-Abruf ist separat und optional; ein erfolgreicher Abruf ist noch keine Lizenz- oder Produktionsfreigabe.</p>
+<button id="run">Simulationstests ausführen</button>
+<button id="live">OpenLigaDB live abfragen (2026)</button>
+<p id="summary">Noch nicht ausgeführt.</p>
+<div id="results"></div>
+<h2>Ausgabe</h2><pre id="output">–</pre>
+<script type="module">
+import {normalizeMatch,mapMatchStatus,fetchLeagueMatches} from "../v2/src/adapters/openligadb.js";
+const fixture={
+ MatchID:12345,MatchDateTimeUTC:"2026-11-20T19:30:00Z",MatchIsFinished:false,
+ LastUpdateDateTime:"2026-11-18T10:00:00Z",LeagueShortcut:"öbl",LeagueName:"Österreichische Bundesliga",LeagueSeason:2026,
+ Team1:{TeamId:1,TeamName:"Heimteam"},Team2:{TeamId:2,TeamName:"Auswärtsteam"}
+};
+const context={fetchedAtUtc:"2026-11-18T10:05:00.000Z",nowMs:Date.parse("2026-11-18T10:05:00Z")};
+function assert(value,message){if(!value)throw Error(message)}
+function show(rows,output){
+ const root=document.getElementById("results");root.replaceChildren();
+ rows.forEach(row=>{const el=document.createElement("div");el.className="item "+(row.ok?"pass":"fail");el.textContent=(row.ok?"BESTANDEN: ":"FEHLER: ")+row.name+" – "+row.detail;root.append(el)});
+ document.getElementById("summary").textContent=rows.filter(x=>x.ok).length+" / "+rows.length+" Tests bestanden";
+ document.getElementById("output").textContent=JSON.stringify(output,null,2);
+}
+document.getElementById("run").onclick=()=>{
+ const rows=[],out=[];
+ const test=(name,fn)=>{try{const v=fn();rows.push({name,ok:true,detail:"OK"});out.push({name,result:v})}catch(e){rows.push({name,ok:false,detail:e.message})}};
+ test("Normales Fixture",()=>{const x=normalizeMatch(fixture,context);assert(x.event_id==="openligadb:12345","ID falsch");assert(x.status==="scheduled","Status falsch");assert(x.data_quality.grade==="A","Qualität nicht A");return x});
+ test("UTC-Zeit",()=>{const x=normalizeMatch(fixture,context);assert(x.scheduled_start_utc==="2026-11-20T19:30:00.000Z","UTC falsch");return x.scheduled_start_utc});
+ test("Abgeschlossen",()=>{assert(mapMatchStatus({...fixture,MatchIsFinished:true},context.nowMs)==="completed","Status falsch");return "completed"});
+ test("MatchIsFinished=false mit vergangenem Anpfiff wird nicht als geplant ausgegeben",()=>{assert(mapMatchStatus({...fixture,MatchDateTimeUTC:"2026-11-17T19:30:00Z"},context.nowMs)==="unknown","Vergangenes Spiel fälschlich scheduled");return "unknown"});
+ test("Fehlende Startzeit ausgeschlossen",()=>{const x=normalizeMatch({...fixture,MatchDateTimeUTC:null},context);assert(!x.data_quality.eligible,"Nicht ausgeschlossen");return x.data_quality});
+ test("Fehlendes Team ausgeschlossen",()=>{const x=normalizeMatch({...fixture,Team2:null},context);assert(!x.data_quality.eligible,"Nicht ausgeschlossen");return x.data_quality});
+ test("Fehlender Quellzeitstempel Qualität B",()=>{const x=normalizeMatch({...fixture,LastUpdateDateTime:null},context);assert(x.data_quality.grade==="B","Nicht auf B gesetzt");return x.data_quality});
+ test("Unbekanntes Finished-Flag ausgeschlossen",()=>{const x=normalizeMatch({...fixture,MatchIsFinished:null},context);assert(x.status==="unknown"&&!x.data_quality.eligible,"Nicht ausgeschlossen");return x.data_quality});
+ show(rows,out);
+};
+document.getElementById("live").onclick=async()=>{
+ document.getElementById("summary").textContent="Live-Abruf läuft …";
+ try{
+  const result=await fetchLeagueMatches({leagueShortcut:"öbl",season:2026});
+  document.getElementById("summary").textContent="HTTP "+result.http_status+" – "+result.received_count+" Datensätze empfangen. Bitte Inhalt und Aktualität prüfen.";
+  document.getElementById("output").textContent=JSON.stringify(result,null,2);
+ }catch(e){document.getElementById("summary").textContent="Live-Abruf fehlgeschlagen: "+e.message;document.getElementById("output").textContent=e.stack||e.message}
+};
+</script>
+</body>
+</html>
