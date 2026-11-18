@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Poisson-Modell – Funktionstest</title>
+<style>body{font:16px system-ui,sans-serif;max-width:900px;margin:28px auto;padding:0 16px;line-height:1.5}button{padding:10px 14px}.test{border:1px solid #8887;border-radius:8px;padding:10px;margin:8px 0}.pass{color:green}.fail{color:#c33}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head>
+<body><h1>Fußballmodell – Poisson-Baseline 0.1.0</h1>
+<p>Isolierter Funktionstest mit synthetischen Zahlen. Keine realen Spiele, keine Quoten und keine Tipps.</p>
+<button id="run">Modelltests ausführen</button><p id="summary">Noch nicht ausgeführt.</p><div id="results"></div><h2>Beispielausgabe</h2><pre id="output">–</pre>
+<script>
+"use strict";
+function assert(v,m){if(!v)throw Error(m)}
+function pois(l,n=12){if(!Number.isFinite(l)||l<=0)throw TypeError("lambda invalid");const p=[Math.exp(-l)];for(let k=1;k<=n;k++)p[k]=p[k-1]*l/k;const s=p.reduce((a,b)=>a+b,0);p[n]+=Math.max(0,1-s);return p}
+function calc(i){for(const k of ["leagueHomeGoals","leagueAwayGoals","homeAttack","homeDefence","awayAttack","awayDefence"])if(!Number.isFinite(i[k])||i[k]<=0)throw TypeError(k);const lh=i.leagueHomeGoals*i.homeAttack*i.awayDefence,la=i.leagueAwayGoals*i.awayAttack*i.homeDefence,h=pois(lh),a=pois(la);let w=0,d=0,l=0;for(let x=0;x<h.length;x++)for(let y=0;y<a.length;y++){const p=h[x]*a[y];if(x>y)w+=p;else if(x===y)d+=p;else l+=p}const s=w+d+l;const p1=w/s,px=d/s,p2=l/s;return {expected_goals:{home:lh,away:la},probabilities:{home_win:p1,draw:px,away_win:p2,double_chance_1x:p1+px,double_chance_x2:px+p2,double_chance_12:p1+p2},odds_used:false}}
+const base={leagueHomeGoals:1.5,leagueAwayGoals:1.2,homeAttack:1,homeDefence:1,awayAttack:1,awayDefence:1};
+const rows=[];function test(n,f){try{f();rows.push({n,ok:true})}catch(e){rows.push({n,ok:false,error:e.message})}}
+document.getElementById("run").onclick=()=>{
+ rows.length=0;
+ test("Wahrscheinlichkeiten ergeben 100 %",()=>{const p=calc(base).probabilities;assert(Math.abs(p.home_win+p.draw+p.away_win-1)<1e-12,"Summe != 1")});
+ test("Doppelte Chance 1X korrekt abgeleitet",()=>{const p=calc(base).probabilities;assert(Math.abs(p.double_chance_1x-p.home_win-p.draw)<1e-12,"1X falsch")});
+ test("Doppelte Chance X2 korrekt abgeleitet",()=>{const p=calc(base).probabilities;assert(Math.abs(p.double_chance_x2-p.draw-p.away_win)<1e-12,"X2 falsch")});
+ test("Doppelte Chance 12 korrekt abgeleitet",()=>{const p=calc(base).probabilities;assert(Math.abs(p.double_chance_12-p.home_win-p.away_win)<1e-12,"12 falsch")});
+ test("Heimvorteil bei höheren Heimtoren",()=>{const x=calc({...base,leagueHomeGoals:2,leagueAwayGoals:0.8}).probabilities;assert(x.home_win>x.away_win,"Heimvorteil nicht abgebildet")});
+ test("Keine Quoten als Input erforderlich",()=>{assert(calc(base).odds_used===false,"Quotenflag falsch")});
+ test("Null-Torparameter wird abgewiesen",()=>{let ok=false;try{calc({...base,homeAttack:0})}catch(e){ok=true}assert(ok,"Null akzeptiert")});
+ test("Ungültiger negativer Parameter wird abgewiesen",()=>{let ok=false;try{calc({...base,awayDefence:-1})}catch(e){ok=true}assert(ok,"Negativ akzeptiert")});
+ const root=document.getElementById("results");root.replaceChildren();rows.forEach(r=>{const el=document.createElement("div");el.className="test "+(r.ok?"pass":"fail");el.textContent=(r.ok?"BESTANDEN: ":"FEHLER: ")+r.n+(r.error?" – "+r.error:"");root.append(el)});
+ document.getElementById("summary").textContent=rows.filter(r=>r.ok).length+" / "+rows.length+" Tests bestanden";
+ document.getElementById("output").textContent=JSON.stringify(calc(base),null,2);
+};
+</script></body></html>
