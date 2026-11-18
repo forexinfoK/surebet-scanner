@@ -1,5 +1,12 @@
 name: V2 historical football backtest
 on:
+  push:
+    branches: [v2.0-development]
+    paths:
+      - "v2-test/openfootball-backtest.mjs"
+      - "v2/src/backtest/**"
+      - "v2/src/models/football-*.js"
+      - ".github/workflows/v2-historical-backtest.yml"
   workflow_dispatch:
   schedule:
     - cron: "31 5 1 * *"
