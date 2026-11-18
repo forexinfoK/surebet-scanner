@@ -106,11 +106,18 @@ async function main() {
     seasons:SEASONS,
     competition_files:reports,
     input_match_count:allMatches.length,
-    backtest
+    backtest: {...backtest, skipped_reasons_detail: backtest.skipped_reasons}
   };
   await writeFile("openfootball-backtest.json",JSON.stringify(result,null,2)+"\n");
   const summary = Object.entries(backtest.by_competition).map(([id,v]) =>
     `| ${id} | ${v.sample_size} | ${v.hit_rate==null?"—":(v.hit_rate*100).toFixed(1)+" %"} | ${v.brier_score==null?"—":v.brier_score.toFixed(4)} | ${v.log_loss==null?"—":v.log_loss.toFixed(4)} |`);
+  const skippedByCompetition = {};
+  for (const item of backtest.skipped_reasons_detail || []) {
+    skippedByCompetition[item.competition] ||= {};
+    skippedByCompetition[item.competition][item.reason] = (skippedByCompetition[item.competition][item.reason] || 0) + 1;
+  }
+  const skippedRows = Object.entries(skippedByCompetition).map(([competition,reasons]) =>
+    `| ${competition} | ${Object.entries(reasons).map(([reason,count])=>reason+": "+count).join("; ")} |`);
   const fileRows = reports.map(r=>`| ${r.competition} | ${r.season||"—"} | ${r.status} | ${r.matches} | ${(r.error||"").replaceAll("|","/")} |`);
   const markdown = [
     "# OpenFootball historical backtest",
@@ -129,6 +136,11 @@ async function main() {
     "| Competition ID | Evaluated matches | Hit rate | Brier score | Log loss |",
     "|---|---:|---:|---:|---:|",
     ...summary,
+    "",
+    "## Skipped match reasons",
+    "| Competition ID | Reasons |",
+    "|---|---|",
+    ...skippedRows,
     "",
     `Total evaluated: ${backtest.evaluated.sample_size}; skipped: ${backtest.skipped_count}`,
     ""
