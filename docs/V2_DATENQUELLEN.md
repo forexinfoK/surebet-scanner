@@ -163,3 +163,26 @@ Die drei nachgewiesenen Kandidaten erhalten ebenfalls erst nach einem echten Lau
 3. Für eine öffentlich erreichbare oder später kommerzielle Anwendung wird vor Integration eine Datenquelle mit ausdrücklich passenden Nutzungsrechten benötigt.
 4. ESPN/theScore-Endpunkte werden nicht als Produktionsquelle fest verdrahtet, solange Rechte, Schema und Verfügbarkeit nicht ausreichend dokumentiert sind.
 5. Die Tennisoberfläche wird erst freigegeben, wenn ATP und WTA getrennt mit aktuellen Fixtures, eindeutigen Spieler-IDs, Startzeit/Status und ausreichend zeitlich korrekter Matchhistorie versorgt werden können.
+
+
+## Ergänzende CC0-Fußball-Historienquelle (18.11.2026)
+
+### OpenFootball – für unabhängige historische Modelltests geeignet
+- OpenFootball veröffentlicht historische Spielpläne und Ergebnisse im Football.TXT-Format für zahlreiche nationale Ligen.
+- Die Projekt-Repositories weisen CC0-1.0/Public-Domain für Daten, Schema und Skripte aus.
+- Nachweisbare aktuelle Dateien (Stand der Repository-Prüfung 18.11.2026) bestehen unter anderem für England, Spanien, Deutschland, Italien, Österreich, Belgien, Frankreich, Niederlande und Portugal. Für die Schweiz ist die neueste auffindbare Datei in der geprüften Verzeichnisliste 2024/25; aktuelle Abdeckung ist daher nicht pauschal anzunehmen.
+- Die Daten sind für historische Tests geeignet, aber nicht als Live-Quelle. Einige Dateien haben Datum und lokale Anstoßzeit ohne explizite Zeitzone; für Backtests wird daher konservativ verhindert, dass Spiele desselben Kalendertags gegenseitig als Historie dienen.
+- Teamnamen können zwischen Saisonen variieren. Der Testadapter normalisiert Namen, ersetzt aber keine sorgfältig gepflegte Team-Alias-/Identitätszuordnung. Dadurch können einzelne Teamhistorien künstlich auseinanderfallen.
+- Quellen: https://github.com/openfootball/leagues ; https://github.com/openfootball/europe ; https://github.com/openfootball/england ; https://github.com/openfootball/espana ; https://github.com/openfootball/deutschland ; https://github.com/openfootball/italy ; https://github.com/openfootball/austria ; https://github.com/openfootball/belgium
+
+### Nutzung im Scanner
+- OpenFootball wird zunächst ausschließlich für reproduzierbare historische Modelltests verwendet.
+- Es wird nicht als zweite Live-Quelle in der App angezeigt und nicht mit OpenLigaDB-Daten vermischt.
+- Backtest-Berichte müssen je Liga/Saison die tatsächlich geladenen und geparsten Spiele ausweisen. Fehlende Dateien werden als nicht verfügbar dokumentiert und nicht durch erfundene Werte ersetzt.
+- Trefferquote allein ist kein Qualitätsnachweis; Brier Score und Log Loss werden ebenfalls berichtet. Die Kennzahlen werden nur für ausreichend große, zeitlich valide Stichproben interpretiert.
+
+### TennisData.App – nicht automatisiert übernehmen
+- Die Download-Seite bewirbt kostenlose ATP-/WTA-CSV-Dateien für 2021–2026 und sagt, die Dateien könnten „in any way“ genutzt werden.
+- Die am 16.04.2026 aktualisierten Nutzungsbedingungen untersagen jedoch Scraping, systematische Extraktion und die Nutzung der Inhalte zum Aufbau/Unterstützen eines konkurrierenden Produkts oder Datensatzes. Zudem sind die Inhalte auf persönliche, nicht-kommerzielle Nutzung beschränkt und dürfen ohne schriftliche Genehmigung nicht weiterveröffentlicht oder abgeleitet werden.
+- Wegen dieses Widerspruchs zwischen Download-Werbung und Terms wird TennisData.App nicht automatisiert in den Scanner integriert, solange keine ausdrückliche schriftliche Klärung vorliegt.
+- Quellen: https://tennisdata.app/downloads/ ; https://tennisdata.app/terms/
