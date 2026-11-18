@@ -28,6 +28,19 @@ function mapMatchStatus(match, nowMs) {
   return Date.parse(start) > nowMs ? "scheduled" : "unknown";
 }
 
+function extractRegulationTimeScore(match) {
+  const results = match?.matchResults ?? match?.MatchResults ?? [];
+  if (!Array.isArray(results) || !results.length) return null;
+  const typed = results.filter(r => typeof (r.resultTypeKind ?? r.ResultTypeKind) === "string");
+  let final = null;
+  if (typed.length) final = typed.find(r => (r.resultTypeKind ?? r.ResultTypeKind) === "After90Minutes") || null;
+  else final = results.find(r => Number(r.resultTypeID ?? r.ResultTypeID) === 2) || null;
+  if (!final) return null;
+  const homeGoals = Number(final.pointsTeam1 ?? final.PointsTeam1);
+  const awayGoals = Number(final.pointsTeam2 ?? final.PointsTeam2);
+  return Number.isInteger(homeGoals) && homeGoals >= 0 && Number.isInteger(awayGoals) && awayGoals >= 0 ? {homeGoals, awayGoals} : null;
+}
+
 function normalizeMatch(match, options = {}) {
   const fetchedAtUtc = options.fetchedAtUtc || new Date().toISOString();
   const nowMs = options.nowMs ?? Date.now();
@@ -39,6 +52,10 @@ function normalizeMatch(match, options = {}) {
   const home = typeof homeName === "string" ? homeName.trim() : "";
   const away = typeof awayName === "string" ? awayName.trim() : "";
   const status = mapMatchStatus(match, nowMs);
+  const score = extractRegulationTimeScore(match);
+  const eventId = match?.matchID ?? match?.MatchID;
+  const homeTeamId = team1?.teamId ?? team1?.TeamId ?? null;
+  const awayTeamId = team2?.teamId ?? team2?.TeamId ?? null;
   const reasons = [];
 
   if ((match?.matchID ?? match?.MatchID) == null) reasons.push("MISSING_EVENT_ID");
@@ -57,7 +74,15 @@ function normalizeMatch(match, options = {}) {
   const season = match?.leagueSeason ?? match?.LeagueSeason ?? options.season ?? null;
 
   return {
-    event_id: (match?.matchID ?? match?.MatchID) != null ? SOURCE_ID + ":" + String(match.matchID ?? match.MatchID) : null,
+    event_id: eventId != null ? SOURCE_ID + ":" + String(eventId) : null,
+    id: eventId,
+    dateUtc: start,
+    homeTeamId: homeTeamId == null ? null : String(homeTeamId),
+    awayTeamId: awayTeamId == null ? null : String(awayTeamId),
+    homeName: home,
+    awayName: away,
+    homeGoals: score?.homeGoals ?? null,
+    awayGoals: score?.awayGoals ?? null,
     sport: "football",
     competition_id: leagueShortcut || null,
     competition_name: leagueName || null,
@@ -147,4 +172,4 @@ async function fetchLeagueMatches({
   }
 }
 
-export { fetchLeagueMatches, normalizeMatch, mapMatchStatus };
+export { fetchLeagueMatches, normalizeMatch, mapMatchStatus, extractRegulationTimeScore };
