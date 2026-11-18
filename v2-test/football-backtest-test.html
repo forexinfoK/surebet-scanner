@@ -1,0 +1,20 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Surebet Scanner – Backtest</title><style>body{font:16px system-ui;max-width:900px;margin:30px auto;padding:0 16px;line-height:1.5}.ok{color:green}.bad{color:#b22}.item{padding:9px;border:1px solid #8885;border-radius:8px;margin:8px 0}button{padding:10px 16px}</style></head><body><h1>Fußball-Backtest – Funktionstest</h1><p>Erzeugt synthetische Testspiele. Keine realen Ergebnisse und keine Aussage über die tatsächliche Modellgüte.</p><button id="run">Tests ausführen</button><p id="summary">Noch nicht ausgeführt.</p><div id="results"></div><pre id="output"></pre><script type="module">
+import {runFootballWalkForward} from "../v2/src/backtest/football-backtest.js";
+const teams=["A","B","C","D","E","F"],matches=[];
+for(let i=0;i<72;i++){const d=new Date(Date.UTC(2025,0,1+i*3,17));matches.push({event_id:"test-"+i,dateUtc:d.toISOString(),status:"completed",homeTeamId:teams[i%6],awayTeamId:teams[(i+2)%6],homeGoals:(i*7%4),awayGoals:(i*3%3)})}
+function assert(v,m){if(!v)throw Error(m)}
+document.getElementById("run").onclick=()=>{
+ const checks=[];const test=(name,fn)=>{try{fn();checks.push({name,ok:true})}catch(e){checks.push({name,ok:false,error:e.message})}};
+ let result;
+ test("Walk-forward liefert Evaluationsdaten",()=>{result=runFootballWalkForward(matches,{minHistoryMatches:20,minTeamVenueMatches:1});assert(result.evaluated.sample_size>0,"no evaluated rows")});
+ test("Keine Zukunftsdaten: chronologische Reihenfolge",()=>{assert(result.rows.every((r,i)=>i===0||Date.parse(r.dateUtc)>=Date.parse(result.rows[i-1].dateUtc)),"not sorted")});
+ test("Brier Score liegt zwischen 0 und 2",()=>assert(result.evaluated.brier_score>=0&&result.evaluated.brier_score<=2,"invalid brier"));
+ test("Log Loss ist endlich und nicht negativ",()=>assert(Number.isFinite(result.evaluated.log_loss)&&result.evaluated.log_loss>=0,"invalid logloss"));
+ test("Trefferquote zwischen 0 und 1",()=>assert(result.evaluated.hit_rate>=0&&result.evaluated.hit_rate<=1,"invalid hit rate"));
+ test("Quoten werden nicht verwendet",()=>assert(result.odds_used===false,"odds used"));
+ test("Zu wenig Historie wird übersprungen",()=>{const x=runFootballWalkForward(matches.slice(0,10),{minHistoryMatches:20});assert(x.evaluated.sample_size===0&&x.skipped_count===10,"should skip all")});
+ const root=document.getElementById("results");root.replaceChildren();checks.forEach(x=>{const d=document.createElement("div");d.className="item "+(x.ok?"ok":"bad");d.textContent=(x.ok?"BESTANDEN: ":"FEHLER: ")+x.name+(x.error?" – "+x.error:"");root.append(d)});
+ document.getElementById("summary").textContent=checks.filter(x=>x.ok).length+" / "+checks.length+" Tests bestanden";
+ document.getElementById("output").textContent=JSON.stringify(result,null,2);
+};
+</script></body></html>
