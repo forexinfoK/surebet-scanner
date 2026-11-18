@@ -180,6 +180,7 @@ test("OpenFootball-Parser liest Ergebnisse und setzt Saisonjahr bei Jahreswechse
 
 Fri Aug 15 2025
   20:45   Rennes  1-0 (0-0)  Olympique Marseille
+  21:00   Lens  2-0 (1-0)  Olympique Lyonnais
 Sat Aug 16
   17:00   Lens  0-1 (0-1)  Olympique Lyonnais
 
@@ -188,9 +189,10 @@ Sat Jan 10
 `;
   const competition={id:"fr1",name:"France Ligue 1"};
   const rows=parseFootballTxt(source,competition,"2025-26");
-  assert.equal(rows.length,3);
+  assert.equal(rows.length,4);
   assert.equal(rows[0].homeTeamId,"rennes");
   assert.equal(rows[0].homeGoals,1);
-  assert.equal(rows[2].dateUtc,"2026-01-10T12:00:00.000Z");
+  assert.equal(rows[3].dateUtc,"2026-01-10T12:00:00.000Z");
   assert.equal(rows[0].dateUtc,rows[1].dateUtc);
+  assert.notEqual(rows[1].dateUtc,rows[2].dateUtc);
 });
