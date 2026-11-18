@@ -1,0 +1,20 @@
+{
+  "name": "Surebet Scanner 2.0",
+  "short_name": "Surebet 2.0",
+  "description": "Datenbasierter Fußball- und Tennisscanner",
+  "lang": "de-AT",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b1220",
+  "theme_color": "#101827",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
