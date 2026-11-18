@@ -46,11 +46,11 @@ async function scan(){
  const todays=fixtures.filter(m=>m.status==="scheduled"&&Number.isFinite(Date.parse(m.dateUtc))&&dayKey(new Date(m.dateUtc))===dayKey(now));
  const historyByComp=new Map();
  for(const m of fixtures)if(m.status==="completed"&&Number.isInteger(m.homeGoals)&&Number.isInteger(m.awayGoals)){if(!historyByComp.has(m.competition))historyByComp.set(m.competition,[]);historyByComp.get(m.competition).push(m)}
- const picks=[];const doublePicks=[];
+ const picks=[];const doublePicks=[];let rejectedPredictions=0;
  for(const m of todays){
   const history=historyByComp.get(m.competition)||[];
   try{
-   const p=predictFootballMatch(history,{homeTeamId:m.homeTeamId,awayTeamId:m.awayTeamId,kickoffUtc:m.dateUtc},{minHistoryMatches:20});
+   const p=predictFootballMatch(history,{homeTeamId:m.homeTeamId,awayTeamId:m.awayTeamId,kickoffUtc:m.dateUtc},{minHistoryMatches:20,minTeamVenueMatches:3});
    const probs=p.probabilities;const sorted=[["1","Heimsieg",probs.home_win],["X","Unentschieden",probs.draw],["2","Auswärtssieg",probs.away_win]].sort((a,b)=>b[2]-a[2]);
    const best=sorted[0];if(best[2]>=.65)picks.push({match:m,selection:best[1],probability:best[2],probabilities:probs,history:history.length});
    for(const [selection,label,probability] of [["1X","Heim oder Unentschieden",probs.double_chance_1x],["X2","Unentschieden oder Auswärts",probs.double_chance_x2],["12","Kein Unentschieden",probs.double_chance_12]]) if(probability>=.65) doublePicks.push({match:m,selection:selection+" · "+label,probability,history:history.length});
@@ -58,7 +58,7 @@ async function scan(){
  }
  picks.sort((a,b)=>new Date(a.match.dateUtc)-new Date(b.match.dateUtc)||b.probability-a.probability);
  doublePicks.sort((a,b)=>new Date(a.match.dateUtc)-new Date(b.match.dateUtc)||b.probability-a.probability);
- return {fixtures,todays,picks,doublePicks,completed,errors,diagnostics};
+ return {fixtures,todays,picks,doublePicks,completed,errors,rejectedPredictions,diagnostics};
 }
 function render(result){
  $("summary").innerHTML="<div><b>"+result.todays.length+"</b><small>Spiele heute</small></div><div><b>"+result.completed+"</b><small>Historische Spiele</small></div><div><b>"+result.picks.length+"</b><small>Prognosen ≥ 65 %</small></div>";
