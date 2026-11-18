@@ -1,0 +1,25 @@
+name: V2 logic tests
+on:
+  push:
+    branches: [v2.0-development]
+    paths:
+      - "v2/**"
+      - "v2-test/**"
+      - ".github/workflows/v2-tests.yml"
+  pull_request:
+    branches: [v2.0-development]
+    paths:
+      - "v2/**"
+      - "v2-test/**"
+      - ".github/workflows/v2-tests.yml"
+permissions:
+  contents: read
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test v2-test/node-tests.mjs
