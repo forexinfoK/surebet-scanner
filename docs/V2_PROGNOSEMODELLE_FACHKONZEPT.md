@@ -222,3 +222,44 @@ Datei: `v2/src/backtest/football-backtest.js`.
 - Ein Browser-Test mit synthetischen Daten liegt unter `v2-test/football-backtest-test.html`. Dieser prüft die technische Auswertung, nicht die reale Prognosegüte.
 
 **Grenze:** Ein Backtest ist erst aussagekräftig, wenn die historischen Resultate vollständig, korrekt zugeordnet und je Wettbewerb ausreichend umfangreich sind. Die Kennzahlen dürfen nicht über mehrere Ligen mit unterschiedlichen Datenqualitäten ungeprüft zusammengefasst werden. Vor einer Freigabe sind außerdem zeitliche Kalibrierung, Saisontrennung und ein Vergleich mit Baselines erforderlich.
+
+
+## 13. Erste reale Walk-forward-Auswertung mit OpenFootball (18.11.2026)
+
+Ein reproduzierbarer Backtest wurde mit den öffentlichen OpenFootball-CC0-Ergebnisdateien für die Saisonen 2024/25 und 2025/26 durchgeführt. Die Daten wurden je Wettbewerb getrennt verarbeitet; Quoten wurden nicht eingelesen oder verwendet. Mangels durchgängiger expliziter Zeitzonenangaben in älteren Dateien erhalten alle Spiele desselben Kalendertages denselben neutralen Zeitstempel. Damit kann kein Spiel eines Tages als Historie für ein anderes Spiel desselben Tages dienen.
+
+**Gesamtergebnis des aktuellen Laufes:**
+- 5.777 eingelesene und geparste Spiele über zehn Zielwettbewerbe.
+- 4.616 tatsächlich ausgewertete Walk-forward-Prognosen.
+- 478 Prognosen erreichten die Scanner-Schwelle von mindestens 65 % für das wahrscheinlichste 1X2-Ergebnis.
+- Abdeckung der 65-%-Tipps: 10,4 % der ausgewerteten Spiele.
+- Trefferquote dieser 478 Tipps: 74,1 %.
+- Brier Score der qualifizierten Tipps: 0,4147.
+- Log Loss der qualifizierten Tipps: 0,7415.
+
+**Trefferquote der 65-%-Tipps je Wettbewerb:**
+
+| Wettbewerb | Qualifizierte Tipps | Trefferquote |
+|---|---:|---:|
+| England – Premier League | 46 | 63,0 % |
+| Spanien – LaLiga | 71 | 77,5 % |
+| Deutschland – Bundesliga | 62 | 74,2 % |
+| Italien – Serie A | 39 | 76,9 % |
+| Frankreich – Ligue 1 | 47 | 70,2 % |
+| Niederlande – Eredivisie | 76 | 82,9 % |
+| Portugal – Primeira Liga | 82 | 75,6 % |
+| Österreich – Bundesliga | 6 | 83,3 % |
+| Belgien – Pro League | 42 | 66,7 % |
+| Schweiz – Super League | 7 | 42,9 % |
+
+**Interpretation und Einschränkungen:**
+1. Das Ergebnis ist ein erster positiver technischer Hinweis, aber noch kein Nachweis einer dauerhaft profitablen Strategie.
+2. Die 74,1 % sind eine reine Trefferquote der qualifizierten 1X2-Auswahlen. Ohne historische Quoten, Einsatzregeln und realistische Marktverfügbarkeit lässt sich daraus kein Gewinn/Verlust und kein positiver Erwartungswert ableiten.
+3. Die Stichproben sind je Wettbewerb unterschiedlich groß. Insbesondere Österreich (6 Tipps) und Schweiz (7 Tipps) erlauben keine belastbare Aussage. Die Schweizer Saison 2025/26 war in der geprüften OpenFootball-Dateiliste nicht verfügbar.
+4. OpenFootball-Teamnamen können sich zwischen Saisonen unterscheiden. Die Normalisierung ist noch keine vollständige Team-Alias-Datenbank; Identitätswechsel können die Historie einzelner Vereine verkürzen.
+5. Zwei Saisonen sind für eine stabile Freigabe zu wenig. Es fehlen längere Zeiträume, Konfidenzintervalle, Kalibrierungsdiagramme und ein Vergleich mit einfachen Baselines (z. B. Heimvorteil-/Ligadurchschnitt und Elo).
+6. Der aktuelle Backtest bewertet das wahrscheinlichste 1X2-Ergebnis mit einer 65-%-Schwelle. Die daraus abgeleiteten Doppelte-Chance-Tipps sind in dieser Auswertung noch nicht separat validiert.
+
+**Folgerung:** Die Fußball-Pipeline bleibt Entwicklungsstand. Die 65-%-Schwelle wird vorerst nicht abgesenkt. Vor einer Freigabe folgen längere historische Tests, Datenqualitäts-/Teamalias-Prüfungen, Kalibrierung und eine separate Validierung der Doppelte-Chance-Märkte.
+
+Reproduzierbarer Lauf und Artefaktbericht: GitHub Actions Workflow „V2 historical football backtest“ im Branch `v2.0-development`. Die Berichtdateien werden als Workflow-Artefakt abgelegt.
