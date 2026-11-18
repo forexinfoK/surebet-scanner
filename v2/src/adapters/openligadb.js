@@ -32,8 +32,8 @@ function normalizeMatch(match, options = {}) {
   const fetchedAtUtc = options.fetchedAtUtc || new Date().toISOString();
   const nowMs = options.nowMs ?? Date.now();
   const start = asUtc(match?.MatchDateTimeUTC);
-  const home = typeof match?.Team1?.TeamName === "string" ? match.Team1.TeamName.trim() : "";
-  const away = typeof match?.Team2?.TeamName === "string" ? match.Team2.TeamName.trim() : "";
+  const team1 = match?.team1 ?? match?.Team1;\n  const team2 = match?.team2 ?? match?.Team2;\n  const homeName = team1?.teamName ?? team1?.TeamName;\n  const awayName = team2?.teamName ?? team2?.TeamName;\n  const home = typeof homeName === "string" ? homeName.trim() : "";
+  const away = typeof awayName === "string" ? awayName.trim() : "";
   const status = mapMatchStatus(match, nowMs);
   const reasons = [];
 
@@ -45,12 +45,12 @@ function normalizeMatch(match, options = {}) {
   const hardFailure = reasons.some(code =>
     ["MISSING_EVENT_ID", "MISSING_START_TIME", "MISSING_PARTICIPANT", "UNKNOWN_STATUS"].includes(code)
   );
-  const sourceUpdatedAtUtc = asUtc(match?.LastUpdateDateTime);
+  const sourceUpdatedAtUtc = asUtc(match?.lastUpdateDateTime ?? match?.LastUpdateDateTime);
   if (!sourceUpdatedAtUtc) reasons.push("SOURCE_TIMESTAMP_MISSING");
 
-  const leagueShortcut = String(match?.LeagueShortcut || options.leagueShortcut || "").trim();
-  const leagueName = String(match?.LeagueName || options.leagueName || "").trim();
-  const season = match?.LeagueSeason ?? options.season ?? null;
+  const leagueShortcut = String(match?.leagueShortcut || match?.LeagueShortcut || options.leagueShortcut || "").trim();
+  const leagueName = String(match?.leagueName || match?.LeagueName || options.leagueName || "").trim();
+  const season = match?.leagueSeason ?? match?.LeagueSeason ?? options.season ?? null;
 
   return {
     event_id: match?.MatchID != null ? SOURCE_ID + ":" + String(match.MatchID) : null,
@@ -64,12 +64,12 @@ function normalizeMatch(match, options = {}) {
       home_team: {
         name: home,
         source_name: home,
-        source_entity_id: match?.Team1?.TeamId ?? null
+        source_entity_id: team1?.teamId ?? team1?.TeamId ?? null
       },
       away_team: {
         name: away,
         source_name: away,
-        source_entity_id: match?.Team2?.TeamId ?? null
+        source_entity_id: team2?.teamId ?? team2?.TeamId ?? null
       }
     } : null,
     source_records: [{
