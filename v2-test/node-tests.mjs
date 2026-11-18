@@ -132,3 +132,12 @@ test("Service Worker cached V2 Shell, aber keine fremden API-Requests",async()=>
   assert.match(sw,/url\.origin !== self\.location\.origin/);
   assert.match(sw,/self\.clients\.claim/);
 });
+
+test("Team-IDs als Zahl und Text werden identisch behandelt",()=>{
+  const rows=footballHistory(60).map(m=>({...m,homeTeamId:Number(m.homeTeamId.charCodeAt(0)),awayTeamId:Number(m.awayTeamId.charCodeAt(0))}));
+  const target={homeTeamId:"65",awayTeamId:66,kickoffUtc:"2025-01-01T12:00:00Z"};
+  const result=estimateTeamStrengths(rows,target);
+  assert.ok(Number.isFinite(result.homeAttack));
+  assert.ok(Number.isFinite(result.awayAttack));
+  assert.throws(()=>estimateTeamStrengths(rows,{...target,awayTeamId:"65"}),/must differ/);
+});
