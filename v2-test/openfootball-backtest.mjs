@@ -16,7 +16,7 @@ const COMPETITIONS = [
 ];
 
 const MONTHS = new Map(["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((m,i)=>[m,i]));
-const DATE_LINE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) ([A-Z][a-z]{2}) (\d{1,2})(?: (\d{4}))?$/;
+const DATE_LINE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) ([A-Z][a-z]{2}) (\d{1,2})(?: (\d{4}))?(?:\s+.*)?$/;
 const MATCH_LINE = /^\s+(\d{1,2}:\d{2})\s+(.+?)\s+(\d+)\s*[-–:]\s*(\d+)(?:\s+\(\d+\s*[-–:]\s*\d+\))?\s+(.+?)\s*$/;
 const MATCH_V_LINE = /^\s*(?:\d{1,2}:\d{2}\s+)?(.+?)\s+v\s+(.+?)\s+(\d+)\s*[-–:]\s*(\d+)(?:\s+\(\d+\s*[-–:]\s*\d+\))?\s*$/i;
 
