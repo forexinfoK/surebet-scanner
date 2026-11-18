@@ -32,7 +32,11 @@ function normalizeMatch(match, options = {}) {
   const fetchedAtUtc = options.fetchedAtUtc || new Date().toISOString();
   const nowMs = options.nowMs ?? Date.now();
   const start = asUtc(match?.MatchDateTimeUTC);
-  const team1 = match?.team1 ?? match?.Team1;\n  const team2 = match?.team2 ?? match?.Team2;\n  const homeName = team1?.teamName ?? team1?.TeamName;\n  const awayName = team2?.teamName ?? team2?.TeamName;\n  const home = typeof homeName === "string" ? homeName.trim() : "";
+  const team1 = match?.team1 ?? match?.Team1;
+  const team2 = match?.team2 ?? match?.Team2;
+  const homeName = team1?.teamName ?? team1?.TeamName;
+  const awayName = team2?.teamName ?? team2?.TeamName;
+  const home = typeof homeName === "string" ? homeName.trim() : "";
   const away = typeof awayName === "string" ? awayName.trim() : "";
   const status = mapMatchStatus(match, nowMs);
   const reasons = [];
