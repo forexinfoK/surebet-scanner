@@ -28,7 +28,7 @@
 <script>
 "use strict";
 const TZ="Europe/Vienna";
-const isoValid=s=>typeof s==="string"&&Number.isFinite(Date.parse(s))&&/(Z|[+-]\\d{2}:?\\d{2})$/.test(s);
+const isoValid=s=>typeof s==="string"&&Number.isFinite(Date.parse(s))&&/(Z|[+-]\d{2}:?\d{2})$/.test(s);
 function toUtc(s){if(!isoValid(s))return null;return new Date(s).toISOString();}
 function localVienna(utc){return new Intl.DateTimeFormat("de-AT",{timeZone:TZ,dateStyle:"short",timeStyle:"short"}).format(new Date(utc));}
 function mapFootballStatus(raw){
