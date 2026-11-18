@@ -19,7 +19,7 @@ button{padding:10px 14px;cursor:pointer}.note,.item{border:1px solid #8887;borde
 <div id="results"></div>
 <h2>Ausgabe</h2><pre id="output">–</pre>
 <script type="module">
-import {normalizeMatch,mapMatchStatus,fetchLeagueMatches} from "../v2/src/adapters/openligadb.js";
+import {normalizeMatch,mapMatchStatus,fetchLeagueMatches,extractRegulationTimeScore} from "../v2/src/adapters/openligadb.js";
 const fixture={
  MatchID:12345,MatchDateTimeUTC:"2026-11-20T19:30:00Z",MatchIsFinished:false,
  LastUpdateDateTime:"2026-11-18T10:00:00Z",LeagueShortcut:"öbl",LeagueName:"Österreichische Bundesliga",LeagueSeason:2026,
@@ -36,6 +36,8 @@ function show(rows,output){
 document.getElementById("run").onclick=()=>{
  const rows=[],out=[];
  const test=(name,fn)=>{try{const v=fn();rows.push({name,ok:true,detail:"OK"});out.push({name,result:v})}catch(e){rows.push({name,ok:false,detail:e.message})}};
+ test("Reguläres Ergebnis wird korrekt aus After90Minutes gelesen",()=>{const x=extractRegulationTimeScore({...fixture,MatchResults:[{ResultTypeKind:"After90Minutes",PointsTeam1:2,PointsTeam2:1}]});assert(x&&x.homeGoals===2&&x.awayGoals===1,"Regulationsergebnis falsch");return x});
+ test("Kein Ergebnis wird nicht als 0:0 interpretiert",()=>{const x=extractRegulationTimeScore({...fixture,MatchResults:[]});assert(x===null,"Fehlendes Ergebnis falsch interpretiert");return x});
  test("Normales Fixture",()=>{const x=normalizeMatch(fixture,context);assert(x.event_id==="openligadb:12345","ID falsch");assert(x.status==="scheduled","Status falsch");assert(x.data_quality.grade==="A","Qualität nicht A");return x});
  test("UTC-Zeit",()=>{const x=normalizeMatch(fixture,context);assert(x.scheduled_start_utc==="2026-11-20T19:30:00.000Z","UTC falsch");return x.scheduled_start_utc});
  test("Abgeschlossen",()=>{assert(mapMatchStatus({...fixture,MatchIsFinished:true},context.nowMs)==="completed","Status falsch");return "completed"});
