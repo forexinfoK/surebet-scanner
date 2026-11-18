@@ -12,6 +12,7 @@ function predictFootballMatch(history, target, options = {}) {
   const strengthOptions = options.strength ?? {};
   const modelOptions = options.model ?? {};
   const minHistory = options.minHistoryMatches ?? 20;
+  const minTeamVenueMatches = options.minTeamVenueMatches ?? 3;
 
   if (!Number.isInteger(minHistory) || minHistory < 1) {
     throw new RangeError("minHistoryMatches must be a positive integer.");
@@ -25,6 +26,17 @@ function predictFootballMatch(history, target, options = {}) {
     );
   }
 
+  if (!Number.isFinite(minTeamVenueMatches) || minTeamVenueMatches < 0) {
+    throw new RangeError("minTeamVenueMatches must be a non-negative number.");
+  }
+  if (strengths.sample.home_team_effective_home_matches < minTeamVenueMatches ||
+      strengths.sample.away_team_effective_away_matches < minTeamVenueMatches) {
+    throw new Error("Insufficient team-specific venue history: home=" +
+      strengths.sample.home_team_effective_home_matches.toFixed(1) +
+      ", away=" + strengths.sample.away_team_effective_away_matches.toFixed(1) +
+      "; at least " + minTeamVenueMatches + " effective matches required.");
+  }
+
   const prediction = predict1X2(strengths, modelOptions);
   return {
     pipeline: "football-pre-match",
@@ -35,6 +47,7 @@ function predictFootballMatch(history, target, options = {}) {
     data_quality: {
       historical_match_count: strengths.historical_match_count,
       minimum_history_matches: minHistory,
+      minimum_team_venue_matches: minTeamVenueMatches,
       home_team_effective_home_matches: strengths.sample.home_team_effective_home_matches,
       away_team_effective_away_matches: strengths.sample.away_team_effective_away_matches
     },
