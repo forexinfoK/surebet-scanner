@@ -4,104 +4,89 @@
 body{font:16px system-ui,sans-serif;max-width:1100px;margin:24px auto;padding:0 16px;line-height:1.45}button{padding:10px 14px;margin:4px;cursor:pointer}.note,.panel{border:1px solid #8887;border-radius:10px;padding:13px;margin:12px 0}table{border-collapse:collapse;width:100%;font-size:.92rem}td,th{padding:8px;border-bottom:1px solid #8886;text-align:left;vertical-align:top}.ok{color:#16834a}.warn{color:#9a6500}.bad{color:#c33}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto}.muted{opacity:.75}
 </style></head><body>
 <h1>OpenLigaDB – Prüfung der zehn Zielligen</h1>
-<p class="note"><b>Entwicklungs- und Diagnoseseite für Surebet Scanner 2.0.</b> Sie ändert weder die stabile Version 1.3.0 noch erzeugt sie Tipps. Der Live-Test liest die öffentliche Ligaübersicht und anschließend Spielpläne der Saison 2026. Ergebnisse sind eine technische Momentaufnahme, keine Lizenz- oder Qualitätsfreigabe.</p>
+<p class="note"><b>Entwicklungs- und Diagnosewerkzeug für Surebet Scanner 2.0.</b> Diese Seite ändert weder Version 1.3.0 noch erzeugt sie Tipps. Sie benötigt eine Internetverbindung. Sie kann direkt als lokale HTML-Datei geöffnet werden und verwendet keine externen JavaScript-Module.</p>
 <button id="run">Ligaübersicht und Spielpläne prüfen</button><span id="status" class="muted">Noch nicht gestartet</span>
-<div class="panel"><b>Bewertung:</b> Ein Liga-Treffer allein genügt nicht. Geprüft werden Namenszuordnung, Spielplan-Array, Anzahl Datensätze, Pflichtfelder, Status- und Zeitangaben sowie Aktualisierungszeitstempel. Bei nicht eindeutiger Zuordnung bleibt die Liga ungeprüft.</div>
+<div class="panel"><b>Prüfung:</b> Liga-Zuordnung, Spielplan-Antwort, Anzahl Spiele, Pflichtfelder, Status, UTC-Zeit und Aktualisierungszeitstempel. Die Ergebnisse sind eine technische Momentaufnahme, keine Freigabe für Prognosen.</div>
 <table><thead><tr><th>Zielliga</th><th>API-Zuordnung</th><th>Spiele</th><th>Pflichtfelder</th><th>Bewertung</th></tr></thead><tbody id="rows"><tr><td colspan="5">Noch keine Daten.</td></tr></tbody></table>
 <h2>Rohdiagnose</h2><pre id="raw">–</pre>
-<script type="module">
-import {normalizeMatch} from "../v2/src/adapters/openligadb.js";
+<script>
+(function(){
+"use strict";
 const targets=[
- {name:"England – Premier League",terms:["Premier League","England"]},
- {name:"Spanien – LaLiga",terms:["LaLiga","Primera Division","Primera División","Spain"]},
- {name:"Deutschland – Bundesliga",terms:["1. Bundesliga","Bundesliga","Germany"]},
- {name:"Italien – Serie A",terms:["Serie A","Italy"]},
- {name:"Frankreich – Ligue 1",terms:["Ligue 1","France"]},
- {name:"Niederlande – Eredivisie",terms:["Eredivisie","Netherlands"]},
- {name:"Portugal – Primeira Liga",terms:["Primeira Liga","Liga Portugal","Portugal"]},
- {name:"Österreich – Bundesliga",terms:["Österreichische Bundesliga","Admiral Bundesliga","Austria"]},
- {name:"Belgien – Pro League",terms:["Pro League","Belgium","Jupiler"]},
- {name:"Schweiz – Super League",terms:["Super League","Switzerland","Schweiz"]}
+ {name:"England – Premier League",terms:["Premier League"]},
+ {name:"Spanien – LaLiga",terms:["LaLiga","Primera Division","Primera División"]},
+ {name:"Deutschland – Bundesliga",terms:["1. Bundesliga","Bundesliga"]},
+ {name:"Italien – Serie A",terms:["Serie A"]},
+ {name:"Frankreich – Ligue 1",terms:["Ligue 1"]},
+ {name:"Niederlande – Eredivisie",terms:["Eredivisie"]},
+ {name:"Portugal – Primeira Liga",terms:["Primeira Liga","Liga Portugal"]},
+ {name:"Österreich – Bundesliga",terms:["Österreichische Bundesliga","Admiral Bundesliga"]},
+ {name:"Belgien – Pro League",terms:["Pro League","Jupiler"]},
+ {name:"Schweiz – Super League",terms:["Super League"]}
 ];
+const $=id=>document.getElementById(id);
 const norm=s=>String(s||"").toLocaleLowerCase("de").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
-function fields(m){
- const t1=m.team1||m.Team1,t2=m.team2||m.Team2;
- const a=t1?.teamName||t1?.TeamName,b=t2?.teamName||t2?.TeamName;
- const d=m.matchDateTimeUTC||m.MatchDateTimeUTC;
- const id=m.matchID??m.MatchID;
- return {id: id!=null,teams:!!(a&&b),date:!!(d&&Number.isFinite(Date.parse(d))),status:(m.matchIsFinished??m.MatchIsFinished)!=null,updated:!!(m.lastUpdateDateTime||m.LastUpdateDateTime)};
-}
-function findCandidates(leagues,target){
- const allTerms=target.terms.map(norm);
+function candidates(leagues,target){
+ const terms=target.terms.map(norm);
  return leagues.map(l=>{
   const name=norm(l.leagueName||l.LeagueName);
-  const shortcut=norm(l.leagueShortcut||l.LeagueShortcut);
-  const country=norm(l.leagueName||l.LeagueName);
   let score=0;
-  for(const term of allTerms){if(name===term)score=Math.max(score,100);else if(name.includes(term)||term.includes(name))score=Math.max(score,70);else if(shortcut===term)score=Math.max(score,60);}
+  for(const term of terms){if(name===term)score=Math.max(score,100);else if(name.includes(term)||term.includes(name))score=Math.max(score,70)}
   return {league:l,score};
  }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
 }
+function readMatch(m){
+ const t1=m.team1||m.Team1,t2=m.team2||m.Team2;
+ const id=m.matchID??m.MatchID;
+ const start=m.matchDateTimeUTC||m.MatchDateTimeUTC;
+ const finished=m.matchIsFinished??m.MatchIsFinished;
+ const updated=m.lastUpdateDateTime||m.LastUpdateDateTime;
+ return {id:id!=null,teams:!!(t1&&(t1.teamName||t1.TeamName)&&t2&&(t2.teamName||t2.TeamName)),date:!!(start&&Number.isFinite(Date.parse(start))&&/(Z|[+-]\d{2}:?\d{2})$/.test(start)),status:finished===true||finished===false,updated:!!(updated&&Number.isFinite(Date.parse(updated)))};
+}
 async function getJson(url){
- const start=performance.now();
- const response=await fetch(url,{headers:{Accept:"application/json"}});
- const elapsed=Math.round(performance.now()-start);
+ const started=performance.now();
+ const response=await fetch(url,{headers:{Accept:"application/json"},cache:"no-store"});
+ const elapsed=Math.round(performance.now()-started);
  if(!response.ok)throw new Error("HTTP "+response.status);
  return {data:await response.json(),elapsed,status:response.status};
 }
-document.getElementById("run").onclick=async()=>{
- const status=document.getElementById("status"),tbody=document.getElementById("rows"),raw=document.getElementById("raw");
- status.textContent="Rufe Ligaübersicht ab …";tbody.replaceChildren();raw.textContent="";
- const diagnostics=[];
+function addRow(name,match,count,fields,rating,cls){
+ const tr=document.createElement("tr");
+ [name,match,count,fields,rating].forEach((v,i)=>{const td=document.createElement("td");td.textContent=v;if(i===4)td.className=cls;tr.appendChild(td)});
+ $("rows").appendChild(tr);
+}
+$("run").addEventListener("click",async function(){
+ const btn=$("run"),status=$("status"),raw=$("raw"),tbody=$("rows");
+ btn.disabled=true;status.textContent="Starte Verbindung zu OpenLigaDB …";tbody.replaceChildren();raw.textContent="";
+ const diag=[];
  try{
   const overview=await getJson("https://api.openligadb.de/getavailableleagues/2026");
   if(!Array.isArray(overview.data))throw new Error("Ligaübersicht ist kein Array.");
-  diagnostics.push({step:"Ligaübersicht",http:overview.status,ms:overview.elapsed,count:overview.data.length});
+  diag.push({step:"Ligaübersicht",http:overview.status,response_ms:overview.elapsed,leagues:overview.data.length});
   for(const target of targets){
-   const candidates=findCandidates(overview.data,target);
-   if(candidates.length===0){
-    diagnostics.push({league:target.name,result:"Kein eindeutiger Treffer in Ligaübersicht"});
-    addRow(target.name,"Kein Treffer","–","–","Nicht nachgewiesen","bad");continue;
-   }
-   const best=candidates[0],league=best.league;
-   const shortcut=league.leagueShortcut||league.LeagueShortcut;
-   const season=league.leagueSeason??league.LeagueSeason??2026;
-   if(candidates.length>1&&candidates[1].score===best.score){
-    diagnostics.push({league:target.name,result:"Mehrdeutige Zuordnung",candidates:candidates.slice(0,4).map(x=>x.league)});
-    addRow(target.name,"Mehrdeutig: "+candidates.slice(0,3).map(x=>x.league.leagueName||x.league.LeagueName).join("; "),"–","–","Manuelle Prüfung nötig","warn");continue;
-   }
+   status.textContent="Prüfe "+target.name+" …";
+   const found=candidates(overview.data,target);
+   if(!found.length){addRow(target.name,"Kein Treffer","–","–","Nicht nachgewiesen","bad");diag.push({league:target.name,error:"Kein eindeutiger Namens-Treffer"});continue}
+   if(found.length>1&&found[0].score===found[1].score){addRow(target.name,"Mehrdeutige Zuordnung","–","–","Manuelle Prüfung nötig","warn");diag.push({league:target.name,error:"Mehrdeutige Liga-Zuordnung",matches:found.slice(0,4).map(x=>x.league)});continue}
+   const l=found[0].league,shortcut=l.leagueShortcut||l.LeagueShortcut,season=l.leagueSeason??l.LeagueSeason??2026;
    try{
     const result=await getJson("https://api.openligadb.de/getmatchdata/"+encodeURIComponent(shortcut)+"/"+encodeURIComponent(String(season)));
-    if(!Array.isArray(result.data))throw new Error("Antwort ist kein Match-Array");
-    const sample=result.data.slice(0,100);
-    const stats=sample.map(fields);
-    const total=stats.length;
-    const complete=stats.filter(x=>x.id&&x.teams&&x.date&&x.status).length;
-    const withUpdated=stats.filter(x=>x.updated).length;
-    const now=Date.now();
-    const future=sample.filter(m=>{
-      const d=m.matchDateTimeUTC||m.MatchDateTimeUTC;
-      return d&&Date.parse(d)>now&&(m.matchIsFinished??m.MatchIsFinished)===false;
-    }).length;
-    const outdated=sample.filter(m=>{
-      const d=m.lastUpdateDateTime||m.LastUpdateDateTime;
-      return d&&Date.now()-Date.parse(d)>14*86400000;
-    }).length;
-    const normalized=result.data.slice(0,3).map(m=>normalizeMatch(m,{fetchedAtUtc:new Date().toISOString(),nowMs:Date.now(),httpStatus:result.status,leagueShortcut:shortcut,season}));
-    const pass=total>0&&complete===total;
-    const rating=total===0?"Keine Spiele":!pass?"Pflichtfelder lückenhaft":withUpdated===0?"Zeitstempel fehlen":"Technischer Abruf ok – Aktualität separat prüfen";
-    const cls=total===0||!pass?"bad":withUpdated===0?"warn":"ok";
-    addRow(target.name,(league.leagueName||league.LeagueName)+" ("+shortcut+")",String(result.data.length),complete+"/"+total,rating,cls);
-    diagnostics.push({league:target.name,matchedLeague:league,matchCount:result.data.length,sampleCount:total,completeSample:complete,updatedTimestampCount:withUpdated,futureScheduledCount:future,olderThan14DaysCount:outdated,http:result.status,ms:result.elapsed,normalizedSample:normalized});
-   }catch(e){diagnostics.push({league:target.name,error:e.message});addRow(target.name,(league.leagueName||league.LeagueName)+" ("+shortcut+")","Fehler","–",e.message,"bad")}
+    if(!Array.isArray(result.data))throw new Error("Spielplan ist kein Array.");
+    const sample=result.data.slice(0,100),checks=sample.map(readMatch);
+    const complete=checks.filter(x=>x.id&&x.teams&&x.date&&x.status).length;
+    const updated=checks.filter(x=>x.updated).length;
+    const future=result.data.filter(m=>{const d=m.matchDateTimeUTC||m.MatchDateTimeUTC;return d&&Date.parse(d)>Date.now()&&(m.matchIsFinished??m.MatchIsFinished)===false}).length;
+    const label=sample.length===0?"Keine Spiele":complete!==sample.length?"Pflichtfelder lückenhaft":updated===0?"Aktualisierungszeitstempel fehlen":"Technischer Abruf ok – Aktualität noch prüfen";
+    const cls=sample.length===0||complete!==sample.length?"bad":updated===0?"warn":"ok";
+    addRow(target.name,(l.leagueName||l.LeagueName)+" ("+shortcut+")",String(result.data.length),complete+"/"+sample.length,label,cls);
+    diag.push({league:target.name,api_league:l,match_count:result.data.length,sample_count:sample.length,complete_sample:complete,updated_timestamp_count:updated,upcoming_unfinished_count:future,http:result.status,response_ms:result.elapsed,example_matches:sample.slice(0,2)});
+   }catch(e){addRow(target.name,(l.leagueName||l.LeagueName)+" ("+shortcut+")","Fehler","–",e.message,"bad");diag.push({league:target.name,error:e.message})}
   }
-  status.textContent="Prüfung abgeschlossen. Ergebnisse sind eine Momentaufnahme.";
-  raw.textContent=JSON.stringify(diagnostics,null,2);
- }catch(e){status.textContent="Abbruch: "+e.message;raw.textContent=e.stack||e.message}
-};
-function addRow(name,match,count,fields,rating,cls){
- const tr=document.createElement("tr");
- [name,match,count,fields,rating].forEach((v,i)=>{const td=document.createElement("td");td.textContent=v;if(i===4)td.className=cls;tr.append(td)});
- document.getElementById("rows").append(tr);
-}
+  status.textContent="Prüfung abgeschlossen.";
+ }catch(e){
+  status.textContent="Verbindungsfehler: "+e.message;
+  diag.push({fatal_error:e.message,help:"Wenn hier CORS oder Failed to fetch steht, blockiert der Browser den direkten API-Aufruf. Dann führen wir den Test über einen anderen Weg aus."});
+ }finally{raw.textContent=JSON.stringify(diag,null,2);btn.disabled=false}
+});
+})();
 </script></body></html>
