@@ -24,7 +24,7 @@ function runFootballWalkForward(matches,options={}){
     const p=result.probabilities,actual=outcomeIndex(match),values=[p.home_win,p.draw,p.away_win];
     if(values.some(v=>!Number.isFinite(v)||v<0||v>1)||Math.abs(values.reduce((s,v)=>s+v,0)-1)>1e-8)throw Error("Model probabilities are invalid or do not sum to 1.");
     const predicted=values.reduce((best,value,index)=>value>values[best]?index:best,0);
-    rows.push({event_id:match.event_id??null,competition,dateUtc:match.dateUtc,hit:predicted===actual,brier:values.reduce((s,v,j)=>s+(v-(j===actual?1:0))**2,0),log_loss:-Math.log(Math.max(1e-15,values[actual]))});
+    rows.push({event_id:match.event_id??null,competition,dateUtc:match.dateUtc,hit:predicted===actual,max_probability:Math.max(...values),actual_probability:values[actual],probabilities:values,brier:values.reduce((s,v,j)=>s+(v-(j===actual?1:0))**2,0),log_loss:-Math.log(Math.max(1e-15,values[actual]))});
    }catch(e){skipped.push({event_id:match.event_id??null,competition,reason:e.message})}
   }
  }
@@ -35,6 +35,6 @@ function runFootballWalkForward(matches,options={}){
   const subset=rows.filter(r=>r.competition===competition),count=subset.length;
   byCompetition[competition]={sample_size:count,hit_rate:count?subset.filter(r=>r.hit).length/count:null,brier_score:count?subset.reduce((s,r)=>s+r.brier,0)/count:null,log_loss:count?subset.reduce((s,r)=>s+r.log_loss,0)/count:null};
  }
- return {method:"chronological competition-isolated walk-forward",model:"football-poisson-baseline",odds_used:false,input_matches:matches.length,valid_matches:valid.length,evaluated:{sample_size:n,hit_rate:n?rows.filter(r=>r.hit).length/n:null,brier_score:n?rows.reduce((s,r)=>s+r.brier,0)/n:null,log_loss:n?rows.reduce((s,r)=>s+r.log_loss,0)/n:null},by_competition:byCompetition,skipped_count:skipped.length,skipped_reasons:skipped.reduce((a,x)=>(a[x.reason]=(a[x.reason]||0)+1,a),{}),skipped_details:skipped,rows};
+ return {method:"chronological competition-isolated walk-forward",model:"football-poisson-baseline",odds_used:false,input_matches:matches.length,valid_matches:valid.length,evaluated:{sample_size:n,hit_rate:n?rows.filter(r=>r.hit).length/n:null,brier_score:n?rows.reduce((s,r)=>s+r.brier,0)/n:null,log_loss:n?rows.reduce((s,r)=>s+r.log_loss,0)/n:null},qualified_picks:{threshold:0.65,sample_size:q,coverage:n?q/n:null,hit_rate:q?qualified.filter(r=>r.hit).length/q:null,brier_score:q?qualified.reduce((s,r)=>s+r.brier,0)/q:null,log_loss:q?qualified.reduce((s,r)=>s+r.log_loss,0)/q:null},by_competition:byCompetition,skipped_count:skipped.length,skipped_reasons:skipped.reduce((a,x)=>(a[x.reason]=(a[x.reason]||0)+1,a),{}),skipped_details:skipped,rows};
 }
 export {runFootballWalkForward};
