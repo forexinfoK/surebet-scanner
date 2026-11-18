@@ -1,0 +1,35 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Integrierte Fußballprognose – Tests</title>
+<style>body{font:16px system-ui,sans-serif;max-width:950px;margin:28px auto;padding:0 16px;line-height:1.5}button{padding:10px 14px}.test{border:1px solid #8887;border-radius:8px;padding:10px;margin:8px 0}.pass{color:green}.fail{color:#c33}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body>
+<h1>Integrierte Fußballprognose – Pipeline-Test</h1>
+<p>Eigenständiger Browser-Test mit synthetischen Daten. Keine Live-Spiele, keine Quoten, keine Wett-Tipps.</p>
+<button id="run">Pipeline-Tests ausführen</button><p id="summary">Noch nicht ausgeführt.</p><div id="results"></div><h2>Beispielprognose</h2><pre id="output">–</pre>
+<script type="module">
+import {predictFootballMatch} from "../v2/src/models/football-pipeline.js";
+const target={homeTeamId:"A",awayTeamId:"B",kickoffUtc:"2026-11-20T18:00:00Z"};
+const history=[];
+const teams=["A","B","C","D","E","F"];
+for(let i=0;i<30;i++){
+ const day=1+(i%28),month=i<15?"10":"11";
+ const home=teams[i%teams.length],away=teams[(i+2)%teams.length];
+ const date="2026-"+month+"-"+String(day).padStart(2,"0")+"T15:00:00Z";
+ history.push({dateUtc:date,status:"completed",homeTeamId:home,awayTeamId:away,homeGoals:1+(i%3),awayGoals:i%2});
+}
+history.push({dateUtc:"2026-11-21T18:00:00Z",status:"completed",homeTeamId:"A",awayTeamId:"B",homeGoals:9,awayGoals:0});
+function assert(v,m){if(!v)throw Error(m)}
+const rows=[];
+function test(n,fn){try{fn();rows.push({n,ok:true})}catch(e){rows.push({n,ok:false,error:e.message})}}
+document.getElementById("run").onclick=()=>{
+ rows.length=0;
+ test("Pipeline liefert 1X2",()=>{const p=predictFootballMatch(history,target,{minHistoryMatches:10});assert(p.probabilities.home_win>0&&p.probabilities.draw>0&&p.probabilities.away_win>0,"missing probability")});
+ test("Wahrscheinlichkeiten summieren auf 100 %",()=>{const p=predictFootballMatch(history,target,{minHistoryMatches:10}).probabilities;assert(Math.abs(p.home_win+p.draw+p.away_win-1)<1e-12,"sum")});
+ test("Doppelte Chancen sind konsistent",()=>{const p=predictFootballMatch(history,target,{minHistoryMatches:10}).probabilities;assert(Math.abs(p.double_chance_1x-p.home_win-p.draw)<1e-12&&Math.abs(p.double_chance_x2-p.draw-p.away_win)<1e-12&&Math.abs(p.double_chance_12-p.home_win-p.away_win)<1e-12,"double chance")});
+ test("Keine Quoten werden verwendet",()=>assert(predictFootballMatch(history,target,{minHistoryMatches:10}).odds_used===false,"odds used"));
+ test("Mindesthistorie wird erzwungen",()=>{let ok=false;try{predictFootballMatch(history,target,{minHistoryMatches:100})}catch{ok=true}assert(ok,"threshold ignored")});
+ test("Zukunftsspiel wird ausgeschlossen",()=>{const a=predictFootballMatch(history,target,{minHistoryMatches:10});const b=predictFootballMatch(history.filter(m=>m.dateUtc!=="2026-11-21T18:00:00Z"),target,{minHistoryMatches:10});assert(JSON.stringify(a.probabilities)===JSON.stringify(b.probabilities),"future data leak")});
+ test("Zielzeitpunkt wird ausgegeben",()=>assert(predictFootballMatch(history,target,{minHistoryMatches:10}).kickoff_utc===target.kickoffUtc,"wrong kickoff"));
+ test("Wiederholbare Ergebnisse",()=>{const a=predictFootballMatch(history,target,{minHistoryMatches:10}),b=predictFootballMatch(history,target,{minHistoryMatches:10});assert(JSON.stringify(a.probabilities)===JSON.stringify(b.probabilities),"not deterministic")});
+ const root=document.getElementById("results");root.replaceChildren();rows.forEach(r=>{const el=document.createElement("div");el.className="test "+(r.ok?"pass":"fail");el.textContent=(r.ok?"BESTANDEN: ":"FEHLER: ")+r.n+(r.error?" – "+r.error:"");root.append(el)});
+ document.getElementById("summary").textContent=rows.filter(r=>r.ok).length+" / "+rows.length+" Tests bestanden";
+ document.getElementById("output").textContent=JSON.stringify(predictFootballMatch(history,target,{minHistoryMatches:10}),null,2);
+};
+</script></body></html>
