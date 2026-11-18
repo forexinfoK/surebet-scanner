@@ -5,6 +5,7 @@ import { estimateTeamStrengths } from "../v2/src/models/football-team-strength.j
 import { predictFootballMatch } from "../v2/src/models/football-pipeline.js";
 import { runFootballWalkForward } from "../v2/src/backtest/football-backtest.js";
 import { calculateTennisElo } from "../v2/src/models/tennis-elo.js";
+import { normalizeMatch, mapMatchStatus, extractRegulationTimeScore } from "../v2/src/adapters/openligadb.js";
 
 function footballHistory(count=120) {
   const rows=[];
@@ -68,4 +69,33 @@ test("Tennis-Elo trennt ATP und WTA",()=>{
   const b=calculateTennisElo([...rows,...rows.filter(x=>x.tour==="WTA").map(x=>({...x,winnerId:"A",loserId:"B"}))],target);
   assert.equal(a.ratings.overall_a,b.ratings.overall_a);
   assert.equal(a.data_quality.historical_matches,b.data_quality.historical_matches);
+});
+
+test("OpenLigaDB: zukünftiges Match mit MatchIsFinished=false ist scheduled",()=>{
+  const match={matchIsFinished:false,matchDateTimeUTC:"2026-12-01T18:00:00Z"};
+  assert.equal(mapMatchStatus(match,Date.parse("2026-11-18T12:00:00Z")),"scheduled");
+});
+
+test("OpenLigaDB: nicht beendetes Match mit vergangenem Anpfiff bleibt unknown",()=>{
+  const match={matchIsFinished:false,matchDateTimeUTC:"2026-11-18T10:00:00Z"};
+  assert.equal(mapMatchStatus(match,Date.parse("2026-11-18T12:00:00Z")),"unknown");
+});
+
+test("OpenLigaDB: regulation time score is preferred and normalized",()=>{
+  const score=extractRegulationTimeScore({matchResults:[
+    {resultTypeKind:"After90Minutes",pointsTeam1:2,pointsTeam2:1},
+    {resultTypeKind:"AfterExtraTime",pointsTeam1:3,pointsTeam2:1}
+  ]});
+  assert.deepEqual(score,{homeGoals:2,awayGoals:1});
+});
+
+test("OpenLigaDB: missing source update timestamp is visible as quality reason",()=>{
+  const row=normalizeMatch({
+    matchID:123,matchIsFinished:true,matchDateTimeUTC:"2026-10-01T18:00:00Z",
+    team1:{teamId:1,teamName:"Home"},team2:{teamId:2,teamName:"Away"},
+    matchResults:[{resultTypeKind:"After90Minutes",pointsTeam1:1,pointsTeam2:0}]
+  },{nowMs:Date.parse("2026-11-18T12:00:00Z"),fetchedAtUtc:"2026-11-18T12:00:00Z"});
+  assert.equal(row.status,"completed");
+  assert.equal(row.homeGoals,1);
+  assert.ok(row.data_quality.reasons.includes("SOURCE_TIMESTAMP_MISSING"));
 });
