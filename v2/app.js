@@ -4,21 +4,21 @@ const TZ="Europe/Vienna";
 const TARGETS=[
  {name:"England · Premier League",aliases:["Premier League"]},
  {name:"Spanien · LaLiga",aliases:["LaLiga","Primera Division"]},
- {name:"Deutschland · Bundesliga",aliases:["1. Bundesliga","Bundesliga"]},
+ {name:"Deutschland · Bundesliga",aliases:["1. deutsche bundesliga","1. bundesliga"]},
  {name:"Italien · Serie A",aliases:["Serie A"]},
  {name:"Frankreich · Ligue 1",aliases:["Ligue 1"]},
  {name:"Niederlande · Eredivisie",aliases:["Eredivisie"]},
  {name:"Portugal · Primeira Liga",aliases:["Primeira Liga","Liga Portugal"]},
- {name:"Österreich · Bundesliga",aliases:["Österreichische Bundesliga","Admiral Bundesliga"]},
- {name:"Belgien · Pro League",aliases:["Pro League","Jupiler Pro League"]},
- {name:"Schweiz · Super League",aliases:["Super League"]}
+ {name:"Österreich · Bundesliga",aliases:["österreichische bundesliga","admiral bundesliga"]},
+ {name:"Belgien · Pro League",aliases:["jupiler pro league","pro league belgium"]},
+ {name:"Schweiz · Super League",aliases:["schweizer super league","credit suisse super league"]}
 ];
 const $=id=>document.getElementById(id);
 const dayKey=d=>new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit"}).format(d);
 const fmt=d=>new Intl.DateTimeFormat("de-AT",{timeZone:TZ,dateStyle:"short",timeStyle:"short"}).format(new Date(d));
 const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
-async function json(url){const r=await fetch(url,{headers:{Accept:"application/json"},cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status+" bei "+url);return r.json()}
-function findLeague(list,target){const aliases=target.aliases.map(norm);const found=list.map(l=>({l,n:norm(l.leagueName||l.LeagueName)})).filter(x=>aliases.some(a=>x.n===a));return found.length===1?found[0].l:null}
+async function json(url){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);try{const r=await fetch(url,{headers:{Accept:"application/json"},cache:"no-store",signal:controller.signal});if(!r.ok)throw Error("HTTP "+r.status+" bei "+url);const data=await r.json();return data}finally{clearTimeout(timer)}}
+function findLeague(list,target){const aliases=target.aliases.map(norm);for(const alias of aliases){const found=list.filter(l=>norm(l.leagueName||l.LeagueName)===alias);if(found.length===1)return found[0]}return null}
 function mapMatch(m,shortcut,season){const home=m.team1||m.Team1,away=m.team2||m.Team2;const id1=home?.teamId??home?.TeamId,id2=away?.teamId??away?.TeamId;const start=m.matchDateTimeUTC||m.MatchDateTimeUTC;const finished=m.matchIsFinished??m.MatchIsFinished;return {id:m.matchID??m.MatchID,competition:shortcut,season:String(season),dateUtc:start,homeTeamId:id1==null?null:String(id1),awayTeamId:id2==null?null:String(id2),homeName:home?.teamName||home?.TeamName,awayName:away?.teamName||away?.TeamName,status:finished===true?"completed":finished===false&&Date.parse(start)>Date.now()?"scheduled":"unknown",homeGoals:null,awayGoals:null,raw:m}}
 function score(m){const results=m.raw.matchResults||m.raw.MatchResults||[];const final=results.find(x=>String(x.resultName??x.ResultName??"").toLowerCase().includes("endergebnis"))||results.find(x=>Number(x.resultTypeID??x.ResultTypeID)===2);if(!final)return null;const h=Number(final.pointsTeam1??final.PointsTeam1),a=Number(final.pointsTeam2??final.PointsTeam2);return Number.isInteger(h)&&Number.isInteger(a)?{homeGoals:h,awayGoals:a}:null}
 function cleanMatch(m){const s=score(m);return {...m,...(s||{})}}
@@ -43,7 +43,7 @@ async function scan(){
   }
  }
  const seen=new Set();fixtures=fixtures.filter(m=>{const k=m.competition+"|"+m.id;if(seen.has(k))return false;seen.add(k);return true});
- const todays=fixtures.filter(m=>m.status==="scheduled"&&dayKey(new Date(m.dateUtc))===dayKey(now));
+ const todays=fixtures.filter(m=>m.status==="scheduled"&&Number.isFinite(Date.parse(m.dateUtc))&&dayKey(new Date(m.dateUtc))===dayKey(now));
  const historyByComp=new Map();
  for(const m of fixtures)if(m.status==="completed"&&Number.isInteger(m.homeGoals)&&Number.isInteger(m.awayGoals)){if(!historyByComp.has(m.competition))historyByComp.set(m.competition,[]);historyByComp.get(m.competition).push(m)}
  const picks=[];const doublePicks=[];
