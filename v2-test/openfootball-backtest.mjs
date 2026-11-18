@@ -10,7 +10,7 @@ const COMPETITIONS = [
   { id:"fra-ligue-1", name:"France Ligue 1", urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/france/${s}_fr1${s === "2025-26" ? "-full" : ""}.txt` },
   { id:"ned-eredivisie", name:"Netherlands Eredivisie", urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/netherlands/${s}_nl1.txt` },
   { id:"por-primeira", name:"Portugal Primeira Liga", urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/portugal/${s}_pt1.txt` },
-  { id:"aut-bundesliga", name:"Austria Bundesliga", urls: s => `https://raw.githubusercontent.com/openfootball/austria/master/${s}/1-bundesliga-full.txt` },
+  { id:"aut-bundesliga", name:"Austria Bundesliga", urls: s => `https://raw.githubusercontent.com/openfootball/austria/master/${s}/1-bundesliga${s === "2025-26" ? "-full" : ""}.txt` },
   { id:"bel-pro-league", name:"Belgium Pro League", urls: s => `https://raw.githubusercontent.com/openfootball/belgium/master/${s}/be1.txt` },
   { id:"sui-super-league", name:"Switzerland Super League", urls: s => `https://raw.githubusercontent.com/openfootball/europe/master/switzerland/${s}_ch1.txt` }
 ];
@@ -18,6 +18,7 @@ const COMPETITIONS = [
 const MONTHS = new Map(["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((m,i)=>[m,i]));
 const DATE_LINE = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) ([A-Z][a-z]{2}) (\d{1,2})(?: (\d{4}))?$/;
 const MATCH_LINE = /^\s+(\d{1,2}:\d{2})\s+(.+?)\s+(\d+)\s*[-–:]\s*(\d+)(?:\s+\(\d+\s*[-–:]\s*\d+\))?\s+(.+?)\s*$/;
+const MATCH_V_LINE = /^\\s*(?:\\d{1,2}:\\d{2}\\s+)?(.+?)\\s+v\\s+(.+?)\\s+(\\d+)\\s*[-–:]\\s*(\\d+)(?:\\s+\\(\\d+\\s*[-–:]\\s*\\d+\\))?\\s*$/i;
 
 function teamKey(name) {
   return String(name).normalize("NFD").replace(/[\u0300-\u036f]/g,"")
