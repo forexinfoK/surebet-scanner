@@ -15,7 +15,9 @@ function estimateTeamStrengths(matches, target, options = {}) {
   if (!target || !target.homeTeamId || !target.awayTeamId || !validDate(target.kickoffUtc)) {
     throw new TypeError("Target requires homeTeamId, awayTeamId and timezone-aware kickoffUtc.");
   }
-  if (target.homeTeamId === target.awayTeamId) throw new Error("Home and away team must differ.");
+  const homeId = String(target.homeTeamId);
+  const awayId = String(target.awayTeamId);
+  if (homeId === awayId) throw new Error("Home and away team must differ.");
 
   const halfLifeDays = options.halfLifeDays ?? 180;
   const priorMatches = options.priorMatches ?? 5;
@@ -26,7 +28,7 @@ function estimateTeamStrengths(matches, target, options = {}) {
   const eligible = matches.filter(m =>
     m && m.status === "completed" &&
     validDate(m.dateUtc) && Date.parse(m.dateUtc) < cutoff &&
-    m.homeTeamId && m.awayTeamId && m.homeTeamId !== m.awayTeamId &&
+    m.homeTeamId != null && m.awayTeamId != null && String(m.homeTeamId) !== String(m.awayTeamId) &&
     Number.isInteger(m.homeGoals) && m.homeGoals >= 0 &&
     Number.isInteger(m.awayGoals) && m.awayGoals >= 0
   );
@@ -54,7 +56,7 @@ function estimateTeamStrengths(matches, target, options = {}) {
     return stats.get(id);
   }
   for (const m of eligible) {
-    const w = decay(m), h = team(m.homeTeamId), a = team(m.awayTeamId);
+    const w = decay(m), h = team(String(m.homeTeamId)), a = team(String(m.awayTeamId));
     h.homeScored += m.homeGoals*w; h.homeConceded += m.awayGoals*w; h.homeWeight += w;
     a.awayScored += m.awayGoals*w; a.awayConceded += m.homeGoals*w; a.awayWeight += w;
   }
@@ -69,7 +71,7 @@ function estimateTeamStrengths(matches, target, options = {}) {
     const defence = (conceded + priorMatches * leagueAgainst) / ((weight + priorMatches) * leagueAgainst);
     return {attack, defence, effective_matches:weight};
   }
-  const hs = stats.get(target.homeTeamId), as = stats.get(target.awayTeamId);
+  const hs = stats.get(homeId), as = stats.get(awayId);
   if (!hs || !as) throw new Error("Insufficient history: one or both teams are unknown.");
   const h = rates(hs,"home"), a = rates(as,"away");
   const result = {
