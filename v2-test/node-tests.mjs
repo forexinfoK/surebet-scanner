@@ -152,3 +152,23 @@ test("Walk-forward verwirft identische Team-IDs auch bei Zahl/Text-Mischung",()=
   assert.equal(result.valid_matches,80);
   assert.equal(result.skipped_count+result.evaluated.sample_size,80);
 });
+
+test("OpenLigaDB: fehlende Team-ID macht Datensatz nicht prognosefähig",()=>{
+  const row=normalizeMatch({
+    matchID:321,matchIsFinished:true,matchDateTimeUTC:"2026-10-01T18:00:00Z",
+    team1:{teamName:"Home"},team2:{teamId:2,teamName:"Away"},
+    matchResults:[{resultTypeKind:"After90Minutes",pointsTeam1:1,pointsTeam2:0}]
+  },{nowMs:Date.parse("2026-11-18T12:00:00Z"),fetchedAtUtc:"2026-11-18T12:00:00Z"});
+  assert.equal(row.data_quality.eligible,false);
+  assert.ok(row.data_quality.reasons.includes("MISSING_TEAM_ID"));
+});
+
+test("OpenLigaDB: gleiche Team-IDs werden unabhängig vom Datentyp abgelehnt",()=>{
+  const row=normalizeMatch({
+    matchID:322,matchIsFinished:true,matchDateTimeUTC:"2026-10-01T18:00:00Z",
+    team1:{teamId:7,teamName:"Home"},team2:{teamId:"7",teamName:"Away"},
+    matchResults:[{resultTypeKind:"After90Minutes",pointsTeam1:1,pointsTeam2:0}]
+  },{nowMs:Date.parse("2026-11-18T12:00:00Z"),fetchedAtUtc:"2026-11-18T12:00:00Z"});
+  assert.equal(row.data_quality.eligible,false);
+  assert.ok(row.data_quality.reasons.includes("DUPLICATE_TEAM_ID"));
+});
