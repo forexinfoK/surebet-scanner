@@ -17,10 +17,10 @@ function asUtc(value) {
 }
 
 function mapMatchStatus(match, nowMs) {
-  if (match?.MatchIsFinished === true) return "completed";
-  if (match?.MatchIsFinished !== false) return "unknown";
+  if ((match?.matchIsFinished ?? match?.MatchIsFinished) === true) return "completed";
+  if ((match?.matchIsFinished ?? match?.MatchIsFinished) !== false) return "unknown";
 
-  const start = asUtc(match?.MatchDateTimeUTC);
+  const start = asUtc((match?.matchDateTimeUTC ?? match?.MatchDateTimeUTC));
   if (!start) return "unknown";
 
   // OpenLigaDB's MatchIsFinished=false alone cannot distinguish a future
@@ -37,7 +37,7 @@ function normalizeMatch(match, options = {}) {
   const status = mapMatchStatus(match, nowMs);
   const reasons = [];
 
-  if (match?.MatchID == null) reasons.push("MISSING_EVENT_ID");
+  if ((match?.matchID ?? match?.MatchID) == null) reasons.push("MISSING_EVENT_ID");
   if (!start) reasons.push("MISSING_START_TIME");
   if (!home || !away) reasons.push("MISSING_PARTICIPANT");
   if (status === "unknown") reasons.push("UNKNOWN_STATUS");
@@ -53,7 +53,7 @@ function normalizeMatch(match, options = {}) {
   const season = match?.leagueSeason ?? match?.LeagueSeason ?? options.season ?? null;
 
   return {
-    event_id: match?.MatchID != null ? SOURCE_ID + ":" + String(match.MatchID) : null,
+    event_id: (match?.matchID ?? match?.MatchID) != null ? SOURCE_ID + ":" + String(match.matchID ?? match.MatchID) : null,
     sport: "football",
     competition_id: leagueShortcut || null,
     competition_name: leagueName || null,
@@ -74,7 +74,7 @@ function normalizeMatch(match, options = {}) {
     } : null,
     source_records: [{
       source_id: SOURCE_ID,
-      source_event_id: match?.MatchID ?? null,
+      source_event_id: match?.matchID ?? match?.MatchID ?? null,
       fetched_at_utc: fetchedAtUtc,
       source_updated_at_utc: sourceUpdatedAtUtc,
       http_status: options.httpStatus ?? 200,
