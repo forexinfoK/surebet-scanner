@@ -1,10 +1,19 @@
-const CACHE = "surebet-v2-shell-1";
-const SHELL = ["./", "./index.html", "./style.css", "./manifest.webmanifest", "./icons/icon.svg"];
+const CACHE = "surebet-v2-shell-2";
+const SHELL = [
+  "./", "./index.html", "./style.css", "./app.js",
+  "./manifest.webmanifest", "./icons/icon.svg",
+  "./src/models/football-pipeline.js",
+  "./src/models/football-team-strength.js",
+  "./src/models/football-poisson.js",
+  "./src/models/tennis-elo.js"
+];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", event => {
-  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith("surebet-v2-") && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim()));
+  event.waitUntil(caches.keys()
+    .then(keys => Promise.all(keys.filter(key => key.startsWith("surebet-v2-") && key !== CACHE).map(key => caches.delete(key))))
+    .then(() => self.clients.claim()));
 });
 self.addEventListener("fetch", event => {
   const request = event.request;
@@ -16,5 +25,7 @@ self.addEventListener("fetch", event => {
       caches.open(CACHE).then(cache => cache.put(request, copy));
     }
     return response;
-  }).catch(() => caches.match(request).then(cached => cached || (request.mode === "navigate" ? caches.match("./index.html") : Response.error()))));
+  }).catch(() => caches.match(request).then(cached =>
+    cached || (request.mode === "navigate" ? caches.match("./index.html") : Response.error())
+  )));
 });
