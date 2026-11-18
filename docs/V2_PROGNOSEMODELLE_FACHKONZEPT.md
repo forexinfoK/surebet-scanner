@@ -229,13 +229,13 @@ Datei: `v2/src/backtest/football-backtest.js`.
 Ein reproduzierbarer Backtest wurde mit den öffentlichen OpenFootball-CC0-Ergebnisdateien für die Saisonen 2024/25 und 2025/26 durchgeführt. Die Daten wurden je Wettbewerb getrennt verarbeitet; Quoten wurden nicht eingelesen oder verwendet. Mangels durchgängiger expliziter Zeitzonenangaben in älteren Dateien erhalten alle Spiele desselben Kalendertages denselben neutralen Zeitstempel. Damit kann kein Spiel eines Tages als Historie für ein anderes Spiel desselben Tages dienen.
 
 **Gesamtergebnis des aktuellen Laufes:**
-- 5.777 eingelesene und geparste Spiele über zehn Zielwettbewerbe.
+- 5.656 eingelesene und geparste Spiele nach Ausschluss einer unvollständigen belgischen Saisondatei.
 - 4.616 tatsächlich ausgewertete Walk-forward-Prognosen.
-- 478 Prognosen erreichten die Scanner-Schwelle von mindestens 65 % für das wahrscheinlichste 1X2-Ergebnis.
+- 467 Prognosen erreichten die Scanner-Schwelle von mindestens 65 % für das wahrscheinlichste 1X2-Ergebnis.
 - Abdeckung der 65-%-Tipps: 10,4 % der ausgewerteten Spiele.
-- Trefferquote dieser 478 Tipps: 74,1 %.
-- Brier Score der qualifizierten Tipps: 0,4147.
-- Log Loss der qualifizierten Tipps: 0,7415.
+- Trefferquote dieser 467 Tipps: 73,9 %.
+- Brier Score der qualifizierten Tipps: 0,4168.
+- Log Loss der qualifizierten Tipps: 0,7446.
 
 **Trefferquote der 65-%-Tipps je Wettbewerb:**
 
@@ -249,7 +249,7 @@ Ein reproduzierbarer Backtest wurde mit den öffentlichen OpenFootball-CC0-Ergeb
 | Niederlande – Eredivisie | 76 | 82,9 % |
 | Portugal – Primeira Liga | 82 | 75,6 % |
 | Österreich – Bundesliga | 6 | 83,3 % |
-| Belgien – Pro League | 42 | 66,7 % |
+| Belgien – Pro League | 31 | 61,3 % |
 | Schweiz – Super League | 7 | 42,9 % |
 
 **Interpretation und Einschränkungen:**
