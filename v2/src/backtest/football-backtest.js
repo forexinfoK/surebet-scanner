@@ -8,7 +8,7 @@ function outcomeIndex(m){return m.homeGoals>m.awayGoals?0:m.homeGoals===m.awayGo
 function runFootballWalkForward(matches,options={}){
  if(!Array.isArray(matches))throw new TypeError("matches must be an array.");
  const minHistoryMatches=options.minHistoryMatches??20,minTeamVenueMatches=options.minTeamVenueMatches??3;
- const valid=matches.filter(m=>m&&m.status==="completed"&&typeof m.dateUtc==="string"&&Number.isFinite(Date.parse(m.dateUtc))&&/(Z|[+-]\d{2}:?\d{2})$/.test(m.dateUtc)&&Number.isInteger(m.homeGoals)&&m.homeGoals>=0&&Number.isInteger(m.awayGoals)&&m.awayGoals>=0&&m.homeTeamId&&m.awayTeamId&&m.homeTeamId!==m.awayTeamId&&typeof(m.competition??"default")==="string");
+ const valid=matches.filter(m=>m&&m.status==="completed"&&typeof m.dateUtc==="string"&&Number.isFinite(Date.parse(m.dateUtc))&&/(Z|[+-]\d{2}:?\d{2})$/.test(m.dateUtc)&&Number.isInteger(m.homeGoals)&&m.homeGoals>=0&&Number.isInteger(m.awayGoals)&&m.awayGoals>=0&&m.homeTeamId!=null&&m.awayTeamId!=null&&String(m.homeTeamId).trim()!==""&&String(m.awayTeamId).trim()!==""&&String(m.homeTeamId)!==String(m.awayTeamId)&&typeof(m.competition??"default")==="string");
  const groups=new Map();
  for(const m of valid){const key=m.competition??"default";if(!groups.has(key))groups.set(key,[]);groups.get(key).push(m)}
  const rows=[],skipped=[];
