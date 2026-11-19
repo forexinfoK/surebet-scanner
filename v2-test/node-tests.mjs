@@ -69,6 +69,19 @@ test("Walk-forward-Backtest liefert nur frühere Historie und Kennzahlen",()=>{
 });
 
 
+test("Saison-Holdout wertet nur Testzeitraum aus und nutzt frühere Historie",()=>{
+  const rows=footballHistory(120);
+  const boundary="2024-04-01T00:00:00.000Z";
+  const result=runFootballWalkForward(rows,{
+    minHistoryMatches:20,minTeamVenueMatches:1,evaluationStartUtc:boundary
+  });
+  assert.equal(result.evaluation_start_utc,boundary);
+  assert.ok(result.evaluated.sample_size>0);
+  assert.ok(result.rows.every(row=>Date.parse(row.dateUtc)>=Date.parse(boundary)));
+  assert.ok(result.rows.every(row=>Date.parse(row.dateUtc)>Date.parse(boundary)));
+  assert.throws(()=>runFootballWalkForward(rows,{evaluationStartUtc:"not-a-date"}),/valid timezone-aware/);
+});
+
 test("Doppelte-Chance wird separat und je Markt im Walk-forward ausgewertet",()=>{
   const rows=footballHistory(120);
   const result=runFootballWalkForward(rows,{minHistoryMatches:20,minTeamVenueMatches:1,pickThreshold:0.65});
