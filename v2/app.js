@@ -3,16 +3,16 @@ import { normalizeMatch } from "./src/adapters/openligadb.js";
 const API="https://api.openligadb.de";
 const TZ="Europe/Vienna";
 const TARGETS=[
- {name:"England · Premier League",aliases:["Premier League"]},
- {name:"Spanien · LaLiga",aliases:["LaLiga","Primera Division"]},
- {name:"Deutschland · Bundesliga",aliases:["1. deutsche bundesliga","1. bundesliga"]},
- {name:"Italien · Serie A",aliases:["Serie A"]},
- {name:"Frankreich · Ligue 1",aliases:["Ligue 1"]},
- {name:"Niederlande · Eredivisie",aliases:["Eredivisie"]},
- {name:"Portugal · Primeira Liga",aliases:["Primeira Liga","Liga Portugal"]},
- {name:"Österreich · Bundesliga",aliases:["österreichische bundesliga","admiral bundesliga"]},
- {name:"Belgien · Pro League",aliases:["jupiler pro league","pro league belgium"]},
- {name:"Schweiz · Super League",aliases:["schweizer super league","credit suisse super league"]}
+ {id:"eng-prem",name:"England · Premier League",aliases:["Premier League"]},
+ {id:"esp-laliga",name:"Spanien · LaLiga",aliases:["LaLiga","Primera Division"]},
+ {id:"ger-bundesliga",name:"Deutschland · Bundesliga",aliases:["1. deutsche bundesliga","1. bundesliga"]},
+ {id:"ita-serie-a",name:"Italien · Serie A",aliases:["Serie A"]},
+ {id:"fra-ligue-1",name:"Frankreich · Ligue 1",aliases:["Ligue 1"]},
+ {id:"ned-eredivisie",name:"Niederlande · Eredivisie",aliases:["Eredivisie"]},
+ {id:"por-primeira",name:"Portugal · Primeira Liga",aliases:["Primeira Liga","Liga Portugal"]},
+ {id:"aut-bundesliga",name:"Österreich · Bundesliga",aliases:["österreichische bundesliga","admiral bundesliga"]},
+ {id:"bel-pro-league",name:"Belgien · Pro League",aliases:["jupiler pro league","pro league belgium"]},
+ {id:"sui-super-league",name:"Schweiz · Super League",aliases:["schweizer super league","credit suisse super league"]}
 ];
 const $=id=>document.getElementById(id);
 const dayKey=d=>new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit"}).format(d);
@@ -64,7 +64,7 @@ async function scan(){
     if(!Array.isArray(rows))throw Error("Spielplan ist kein Array");
     const fetchedAt=Date.now();
     const mapped=rows.map(m=>mapMatch(m,shortcut,year,fetchedAt)).filter(m=>m.data_quality?.eligible&&m.id!=null&&m.dateUtc&&m.homeTeamId&&m.awayTeamId&&m.homeTeamId!==m.awayTeamId);
-    fixtures.push(...mapped);
+    fixtures.push(...mapped.map(match=>({...match,competition:target.id,competition_name:target.name,source_league_shortcut:shortcut})));
     completed+=mapped.filter(m=>m.status==="completed"&&Number.isInteger(m.homeGoals)&&Number.isInteger(m.awayGoals)).length;
     const missingSourceTimestamps=mapped.filter(m=>m.data_quality?.reasons?.includes("SOURCE_TIMESTAMP_MISSING")).length;
     diagnostics.push(target.name+" / "+year+" ("+shortcut+"): "+mapped.length+" valide Spiele, davon "+mapped.filter(m=>m.status==="completed"&&Number.isInteger(m.homeGoals)&&Number.isInteger(m.awayGoals)).length+" mit Ergebnis; "+missingSourceTimestamps+" ohne Quell-Aktualisierungszeitpunkt");
