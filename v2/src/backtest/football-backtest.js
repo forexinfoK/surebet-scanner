@@ -9,11 +9,32 @@ function outcomeIndex(match) {
   return match.homeGoals > match.awayGoals ? 0 : match.homeGoals === match.awayGoals ? 1 : 2;
 }
 
+function wilsonInterval(successes,total,z=1.96) {
+  if (!total) return null;
+  const p=successes/total, z2=z*z, denominator=1+z2/total;
+  const center=(p+z2/(2*total))/denominator;
+  const margin=z*Math.sqrt((p*(1-p)/total)+(z2/(4*total*total)))/denominator;
+  return [Math.max(0,center-margin),Math.min(1,center+margin)];
+}
+
+function calibrationBins(rows,threshold=0.65) {
+  const selected=rows.filter(row=>row.max_probability>=threshold);
+  const bins=[];
+  for(let lower=threshold;lower<1;lower+=0.05) {
+    const upper=Math.min(1,lower+0.05);
+    const subset=selected.filter(row=>row.max_probability>=lower && (upper===1 ? row.max_probability<=upper : row.max_probability<upper));
+    if(subset.length) bins.push({lower,upper,sample_size:subset.length,mean_confidence:subset.reduce((sum,row)=>sum+row.max_probability,0)/subset.length,observed_accuracy:subset.filter(row=>row.hit).length/subset.length});
+  }
+  return bins;
+}
+
 function metrics(rows) {
   const n = rows.length;
+  const hits=rows.filter(row=>row.hit).length;
   return {
     sample_size: n,
-    hit_rate: n ? rows.filter(row => row.hit).length / n : null,
+    hit_rate: n ? hits / n : null,
+    hit_rate_ci95:wilsonInterval(hits,n),
     brier_score: n ? rows.reduce((sum,row) => sum + row.brier,0) / n : null,
     log_loss: n ? rows.reduce((sum,row) => sum + row.log_loss,0) / n : null
   };
@@ -136,6 +157,7 @@ function runFootballWalkForward(matches, options = {}) {
       ...metrics(qualified),
       coverage:rows.length ? qualified.length / rows.length : null
     },
+    qualified_calibration:calibrationBins(rows,pickThreshold),
     reference_qualified_picks:{threshold:pickThreshold,...metrics(referenceQualified.map(row=>({hit:row.reference_hit,brier:row.reference_brier,log_loss:row.reference_log_loss}))),coverage:rows.length ? referenceQualified.length/rows.length : null},
     by_competition:byCompetition,
     skipped_count:skipped.length,
