@@ -62,21 +62,21 @@ function doubleChanceMetrics(rows, threshold) {
       }
     }
   }
-  const summary = subset => {
+  const summary = (subset, singleMarket = false) => {
     const n=subset.length, hits=subset.filter(x=>x.hit).length;
     return {
       threshold, ...metrics(subset),
-      coverage: rows.length ? n/(rows.length*3) : null,
+      coverage: rows.length ? n/(rows.length*(singleMarket ? 1 : 3)) : null,
       picks_per_match: rows.length ? n/rows.length : null,
       market_breakdown:Object.fromEntries(markets.map(m=>{
         const group=subset.filter(x=>x.market===m);
-        return [m,{...metrics(group),pick_count:group.length}];
+        return [m,{...metrics(group),pick_count:group.length,coverage:rows.length ? group.length/rows.length : null}];
       }))
     };
   };
   return {
     all_markets:summary(picks),
-    by_market:Object.fromEntries(markets.map(m=>[m,summary(picks.filter(x=>x.market===m))]))
+    by_market:Object.fromEntries(markets.map(m=>[m,summary(picks.filter(x=>x.market===m),true)]))
   };
 }
 
