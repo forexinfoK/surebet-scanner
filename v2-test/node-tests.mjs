@@ -58,6 +58,11 @@ test("Walk-forward-Backtest liefert nur frühere Historie und Kennzahlen",()=>{
   assert.equal(r.qualified_picks.threshold,0.65);
   assert.ok(r.qualified_picks.sample_size<=r.evaluated.sample_size);
   assert.ok(r.by_competition["test-league"].qualified_picks.sample_size<=r.by_competition["test-league"].sample_size);
+  assert.equal(r.reference.sample_size,r.evaluated.sample_size);
+  assert.ok(r.reference.brier_score>=0);
+  assert.ok(r.reference.log_loss>=0);
+  assert.ok(r.reference_qualified_picks.sample_size<=r.evaluated.sample_size);
+  assert.ok(r.rows.every(row=>row.reference_probabilities.reduce((sum,value)=>sum+value,0)===1));
 });
 
 test("Tennis-Elo trennt ATP und WTA",()=>{
