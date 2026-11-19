@@ -1,5 +1,11 @@
 name: V2 live data coverage check
 on:
+  push:
+    branches:
+      - v2.0-development
+    paths:
+      - ".github/workflows/v2-live-coverage.yml"
+      - "v2-test/openligadb-coverage.mjs"
   workflow_dispatch:
     inputs:
       season:
