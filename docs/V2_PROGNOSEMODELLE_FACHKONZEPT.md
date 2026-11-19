@@ -263,3 +263,28 @@ Ein reproduzierbarer Backtest wurde mit den öffentlichen OpenFootball-CC0-Ergeb
 **Folgerung:** Die Fußball-Pipeline bleibt Entwicklungsstand. Die 65-%-Schwelle wird vorerst nicht abgesenkt. Vor einer Freigabe folgen längere historische Tests, Datenqualitäts-/Teamalias-Prüfungen, Kalibrierung und eine separate Validierung der Doppelte-Chance-Märkte.
 
 Reproduzierbarer Lauf und Artefaktbericht: GitHub Actions Workflow „V2 historical football backtest“ im Branch `v2.0-development`. Die Berichtdateien werden als Workflow-Artefakt abgelegt.
+
+## 13. Ergänzende Walk-forward-Prüfung: Referenzmodell und Unsicherheit (19.11.2026)
+
+Für dieselben 4.511 Spiele, für die das Poisson-Teammodell eine gültige Prognose abgab, wurde ein einfaches Referenzmodell berechnet. Dieses verwendet ausschließlich die bis zum jeweiligen Anpfiff bekannten 1X2-Häufigkeiten derselben Liga und eine Laplace-Glättung.
+
+| Modell | Spiele | Trefferquote | Brier Score | Log Loss |
+|---|---:|---:|---:|---:|
+| Poisson-Teammodell | 4.511 | 50,1 % | 0,6101 | 1,0186 |
+| Geglätteter Liga-1X2-Prior | 4.511 | 43,0 % | 0,6527 | 1,0783 |
+
+Auf den 467 Poisson-Auswahlen mit maximaler 1X2-Wahrscheinlichkeit von mindestens 65 % lag die Trefferquote bei 73,9 %. Das 95%-Wilson-Konfidenzintervall beträgt 69,7–77,7 %. Die Abdeckung lag bei 10,4 % der ausgewerteten Spiele.
+
+Kalibrierungsübersicht dieser 467 Auswahlen:
+
+| Modell-Konfidenz | Anzahl | Mittlere Konfidenz | Tatsächliche Trefferquote |
+|---|---:|---:|---:|
+| 65–70 % | 236 | 67,3 % | 69,9 % |
+| 70–75 % | 129 | 72,3 % | 74,4 % |
+| 75–80 % | 64 | 77,1 % | 85,9 % |
+| 80–85 % | 29 | 82,0 % | 79,3 % |
+| 85–90 % | 9 | 87,2 % | 66,7 % |
+
+**Interpretation und Grenzen:** Das Poisson-Teammodell schlägt in diesem Test das einfache Liga-Referenzmodell bei Trefferquote, Brier Score und Log Loss. Das ist ein messbarer Out-of-sample-Vorteil gegenüber genau dieser einfachen Referenz, aber noch kein Nachweis für Wettprofitabilität. Es wurden keine Quoten, Einsätze, Value-Signale oder Renditen ausgewertet. Die höchsten Konfidenzklassen haben sehr kleine Stichproben; die Schwankungen dort sind entsprechend groß. Die Daten umfassen weiterhin nur zwei Spielzeiten und die dokumentierte OpenFootball-Abdeckung. Eine längere Historie, Teamnamen-Aliasprüfung und unabhängige spätere Testperiode bleiben erforderlich.
+
+Technisch ergänzt: Das Walk-forward-Modul berechnet nun zusätzlich den strikt zeitlich vorherigen Liga-Prior, 95%-Wilson-Intervalle für Trefferquoten und Konfidenzbänder für die qualifizierten Poisson-Auswahlen. Die Ergebnisse werden im CI-Artefakt protokolliert.
