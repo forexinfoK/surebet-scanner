@@ -62,6 +62,10 @@ function runFootballWalkForward(matches, options = {}) {
         continue;
       }
       try {
+        const priorCounts = [1,1,1];
+        for (const prior of history) priorCounts[outcomeIndex(prior)]++;
+        const priorTotal = priorCounts.reduce((sum,value)=>sum+value,0);
+        const referenceProbabilities = priorCounts.map(value=>value/priorTotal);
         const result = predictFootballMatch(history, {
           homeTeamId:String(match.homeTeamId),
           awayTeamId:String(match.awayTeamId),
@@ -84,7 +88,11 @@ function runFootballWalkForward(matches, options = {}) {
           actual_probability:values[actual],
           probabilities:values,
           brier:values.reduce((sum,value,index) => sum + (value - (index === actual ? 1 : 0)) ** 2,0),
-          log_loss:-Math.log(Math.max(1e-15,values[actual]))
+          log_loss:-Math.log(Math.max(1e-15,values[actual])),
+          reference_hit:referenceProbabilities.indexOf(Math.max(...referenceProbabilities)) === actual,
+          reference_probabilities:referenceProbabilities,
+          reference_brier:referenceProbabilities.reduce((sum,value,index)=>sum+(value-(index===actual?1:0))**2,0),
+          reference_log_loss:-Math.log(Math.max(1e-15,referenceProbabilities[actual]))
         });
       } catch (error) {
         skipped.push({event_id:match.event_id ?? null,competition,reason:error.message});
@@ -94,17 +102,24 @@ function runFootballWalkForward(matches, options = {}) {
 
   rows.sort((a,b) => Date.parse(a.dateUtc) - Date.parse(b.dateUtc));
   const qualified = rows.filter(row => row.max_probability >= pickThreshold);
+  const referenceRows = rows.map(row=>({hit:row.reference_hit,brier:row.reference_brier,log_loss:row.reference_log_loss}));
+  const referenceQualified = rows.filter(row=>Math.max(...row.reference_probabilities)>=pickThreshold);
   const byCompetition = {};
   for (const competition of groups.keys()) {
     const subset = rows.filter(row => row.competition === competition);
     const qualifiedSubset = subset.filter(row => row.max_probability >= pickThreshold);
     byCompetition[competition] = {
       ...metrics(subset),
+      reference:metrics(subset.map(row=>({hit:row.reference_hit,brier:row.reference_brier,log_loss:row.reference_log_loss}))),
       qualified_picks: {
         threshold:pickThreshold,
         ...metrics(qualifiedSubset),
         coverage:subset.length ? qualifiedSubset.length / subset.length : null
-      }
+      },
+      reference_qualified_picks: (() => {
+        const ref = subset.filter(row=>Math.max(...row.reference_probabilities)>=pickThreshold);
+        return {...metrics(ref.map(row=>({hit:row.reference_hit,brier:row.reference_brier,log_loss:row.reference_log_loss}))),coverage:subset.length ? ref.length/subset.length : null};
+      })()
     };
   }
 
@@ -115,11 +130,13 @@ function runFootballWalkForward(matches, options = {}) {
     input_matches:matches.length,
     valid_matches:valid.length,
     evaluated:metrics(rows),
+    reference:metrics(referenceRows),
     qualified_picks:{
       threshold:pickThreshold,
       ...metrics(qualified),
       coverage:rows.length ? qualified.length / rows.length : null
     },
+    reference_qualified_picks:{threshold:pickThreshold,...metrics(referenceQualified.map(row=>({hit:row.reference_hit,brier:row.reference_brier,log_loss:row.reference_log_loss}))),coverage:rows.length ? referenceQualified.length/rows.length : null},
     by_competition:byCompetition,
     skipped_count:skipped.length,
     skipped_reasons:skipped.reduce((counts,item) => {
