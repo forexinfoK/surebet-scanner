@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { runFootballWalkForward } from "../v2/src/backtest/football-backtest.js";
 
-const SEASONS = ["2024-25", "2025-26"];
+const SEASONS = ["2022-23", "2023-24", "2024-25", "2025-26"];
 const COMPETITIONS = [
   { id:"eng-prem", name:"England Premier League", minimumSeasonMatches:350, urls: s => `https://raw.githubusercontent.com/openfootball/england/master/${s}/1-premierleague${s === "2025-26" ? "-full" : ""}.txt` },
   { id:"esp-laliga", name:"Spain LaLiga", minimumSeasonMatches:350, urls: s => `https://raw.githubusercontent.com/openfootball/espana/master/${s}/1-liga${s === "2025-26" ? "-full" : ""}.txt` },
@@ -63,6 +63,9 @@ function parseFootballTxt(source, competition, season) {
       status:"completed",
       homeTeamId:teamKey(home),
       awayTeamId:teamKey(away),
+      homeTeamName:home,
+      awayTeamName:away,
+      season,
       homeGoals,
       awayGoals
     });
@@ -100,6 +103,20 @@ async function main() {
     }
     if (!loaded) reports.push({competition:competition.name,competition_id:competition.id,status:"NO_HISTORICAL_DATA",note:errors.join("; ")});
   }
+  const teamNamesByCompetition = new Map();
+  for (const match of allMatches) {
+    if (!teamNamesByCompetition.has(match.competition)) teamNamesByCompetition.set(match.competition,new Map());
+    const names=teamNamesByCompetition.get(match.competition);
+    for (const name of [match.homeTeamName,match.awayTeamName]) {
+      const key=teamKey(name);
+      if (!names.has(key)) names.set(key,{canonical_key:key,variants:new Set(),seasons:new Set()});
+      names.get(key).variants.add(name);
+      names.get(key).seasons.add(match.season);
+    }
+  }
+  const teamIdentityAudit=Object.fromEntries([...teamNamesByCompetition].map(([competition,names])=>[
+    competition,[...names.values()].map(item=>({canonical_key:item.canonical_key,variants:[...item.variants].sort(),seasons:[...item.seasons].sort()}))
+  ]));
   const backtest = runFootballWalkForward(allMatches,{minHistoryMatches:20,minTeamVenueMatches:3});
   const result = {
     generated_at_utc:new Date().toISOString(),
@@ -108,6 +125,7 @@ async function main() {
     seasons:SEASONS,
     competition_files:reports,
     input_match_count:allMatches.length,
+    team_identity_audit:teamIdentityAudit,
     backtest
   };
   await writeFile("openfootball-backtest.json",JSON.stringify(result,null,2)+"\n");
