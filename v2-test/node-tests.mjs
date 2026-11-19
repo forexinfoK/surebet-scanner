@@ -83,6 +83,10 @@ test("Doppelte-Chance wird separat und je Markt im Walk-forward ausgewertet",()=
     assert.ok(summary.hit_rate===null || (summary.hit_rate>=0 && summary.hit_rate<=1));
     assert.ok(summary.brier_score===null || summary.brier_score>=0);
     assert.ok(summary.log_loss===null || summary.log_loss>=0);
+    assert.ok(Array.isArray(summary.calibration));
+    assert.ok(summary.calibration.every(bin=>bin.sample_size>0 &&
+      bin.mean_confidence>=bin.lower && bin.mean_confidence<=bin.upper &&
+      bin.observed_accuracy>=0 && bin.observed_accuracy<=1));
   }
   assert.ok(result.rows.every(row=>Number.isInteger(row.actual_outcome)));
 });
