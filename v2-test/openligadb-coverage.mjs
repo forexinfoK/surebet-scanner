@@ -7,12 +7,12 @@ const NOW = Date.now();
 const TARGETS = [
   { name: "England – Premier League", aliases: ["Premier League"] },
   { name: "Spanien – LaLiga", aliases: ["LaLiga", "Primera Division"] },
-  { name: "Deutschland – Bundesliga", aliases: ["1. deutsche bundesliga", "1. bundesliga"] },
+  { name: "Deutschland – Bundesliga", aliases: ["1. fußball-bundesliga", "1. deutsche bundesliga", "1. bundesliga"] },
   { name: "Italien – Serie A", aliases: ["Serie A"] },
   { name: "Frankreich – Ligue 1", aliases: ["Ligue 1"] },
   { name: "Niederlande – Eredivisie", aliases: ["Eredivisie"] },
   { name: "Portugal – Primeira Liga", aliases: ["Primeira Liga", "Liga Portugal"] },
-  { name: "Österreich – Bundesliga", aliases: ["österreichische bundesliga", "admiral bundesliga"] },
+  { name: "Österreich – Bundesliga", aliases: ["admiral bundesliga österreich", "österreichische bundesliga", "admiral bundesliga"] },
   { name: "Belgien – Pro League", aliases: ["jupiler pro league", "pro league belgium"] },
   { name: "Schweiz – Super League", aliases: ["schweizer super league", "credit suisse super league"] }
 ];
