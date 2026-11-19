@@ -64,6 +64,7 @@ const workers = Array.from({ length: 3 }, async () => {
       if (!Array.isArray(matches)) throw new Error("Spielplan ist kein Array");
       const ids = new Set();
       let structurallyValid = 0, validTimes = 0, updated = 0, duplicates = 0;
+      const invalidReasons = {};
       for (const m of matches) {
         const id = m.matchID ?? m.MatchID;
         const home = m.team1 ?? m.Team1, away = m.team2 ?? m.Team2;
@@ -72,10 +73,18 @@ const workers = Array.from({ length: 3 }, async () => {
         if (validStart) validTimes++;
         if (id != null && ids.has(String(id))) duplicates++;
         if (id != null) ids.add(String(id));
-        if (id != null && home?.teamId != null && away?.teamId != null &&
-            String(home.teamId) !== String(away.teamId) &&
-            typeof (home.teamName ?? home.TeamName) === "string" &&
-            typeof (away.teamName ?? away.TeamName) === "string" && validStart) structurallyValid++;
+        const checks = [
+          ["missing_match_id", id != null],
+          ["missing_home_team_id", home?.teamId != null],
+          ["missing_away_team_id", away?.teamId != null],
+          ["same_team_ids", home?.teamId != null && away?.teamId != null && String(home.teamId) !== String(away.teamId)],
+          ["missing_home_team_name", typeof (home?.teamName ?? home?.TeamName) === "string" && Boolean(home?.teamName ?? home?.TeamName)],
+          ["missing_away_team_name", typeof (away?.teamName ?? away?.TeamName) === "string" && Boolean(away?.teamName ?? away?.TeamName)],
+          ["invalid_or_missing_timezone_start", validStart]
+        ];
+        const failed = checks.filter(([,ok]) => !ok).map(([reason]) => reason);
+        if (failed.length === 0) structurallyValid++;
+        for (const reason of failed) invalidReasons[reason] = (invalidReasons[reason] || 0) + 1;
         if (Number.isFinite(Date.parse(m.lastUpdateDateTime ?? m.LastUpdateDateTime))) updated++;
       }
       const status = matches.length > 0 && structurallyValid === matches.length && duplicates === 0 ? "STRUCTURE_OK" :
@@ -84,7 +93,7 @@ const workers = Array.from({ length: 3 }, async () => {
         competition: target.name, status, league_name: resolved.item.leagueName ?? resolved.item.LeagueName ?? "",
         league_shortcut: shortcut, season: SEASON, match_count: matches.length,
         structurally_valid: structurallyValid, valid_timezone_starts: validTimes,
-        source_update_timestamps: updated, duplicate_ids: duplicates
+        source_update_timestamps: updated, duplicate_ids: duplicates, invalid_reasons: invalidReasons
       };
     } catch (error) {
       results[index] = { competition: target.name, status: "FETCH_ERROR", league_shortcut: shortcut, reason: error.message };
@@ -97,6 +106,7 @@ const report = {
   generated_at_utc: new Date(NOW).toISOString(),
   season: SEASON,
   source: "OpenLigaDB public API",
+  available_leagues: overview.map(item => ({ name: item.leagueName ?? item.LeagueName ?? "", shortcut: item.leagueShortcut ?? item.LeagueShortcut ?? "" })),
   activation_notice: "This report is diagnostic only. No competition is automatically enabled in the production scanner.",
   results
 };
@@ -109,7 +119,13 @@ const markdown = [
   "- Diagnostic only; does not enable competitions in the scanner.", "",
   "| Competition | Status | Shortcut | Matches | Structurally valid | With source update timestamp | Note |",
   "|---|---|---:|---:|---:|---:|---|",
-  ...rows, ""
+  ...rows, "",
+  "## Available API league names",
+  "| API league name | Shortcut |",
+  "|---|---|",
+  ...report.available_leagues.map(item => "| " + item.name.replaceAll("|", "/") + " | " + item.shortcut + " |"), "",
+  "## Structural validation detail",
+  ...results.filter(r => r.invalid_reasons && Object.keys(r.invalid_reasons).length).map(r => "- " + r.competition + ": " + Object.entries(r.invalid_reasons).map(([reason,count]) => reason + "=" + count).join(", ")), ""
 ].join("\n");
 await writeFile("openligadb-coverage.md", markdown);
 console.log(markdown);
