@@ -118,6 +118,17 @@ async function main() {
     competition,[...names.values()].map(item=>({canonical_key:item.canonical_key,variants:[...item.variants].sort(),seasons:[...item.seasons].sort()}))
   ]));
   const backtest = runFootballWalkForward(allMatches,{minHistoryMatches:20,minTeamVenueMatches:3});
+  // Independent season holdout: 2025/26 fixtures are evaluated only against
+  // results strictly earlier than each kickoff. Older seasons form the initial
+  // training history; completed earlier 2025/26 matches may update later picks.
+  const holdoutStartUtc = "2025-08-01T00:00:00.000Z";
+  const holdoutBacktest = runFootballWalkForward(allMatches,{
+    minHistoryMatches:20,
+    minTeamVenueMatches:3,
+    evaluationStartUtc:holdoutStartUtc
+  });
+  const holdoutTrainingMatches = allMatches.filter(match=>Date.parse(match.dateUtc)<Date.parse(holdoutStartUtc)).length;
+  const holdoutTestMatches = allMatches.filter(match=>Date.parse(match.dateUtc)>=Date.parse(holdoutStartUtc)).length;
   const result = {
     generated_at_utc:new Date().toISOString(),
     source:"OpenFootball public-domain football.txt datasets (CC0-1.0)",
@@ -126,7 +137,8 @@ async function main() {
     competition_files:reports,
     input_match_count:allMatches.length,
     team_identity_audit:teamIdentityAudit,
-    backtest
+    backtest,
+    season_holdout:{holdout_season:"2025-26",evaluation_start_utc:holdoutStartUtc,training_input_matches:holdoutTrainingMatches,test_input_matches:holdoutTestMatches,backtest:holdoutBacktest}
   };
   await writeFile("openfootball-backtest.json",JSON.stringify(result,null,2)+"\n");
   const summary = Object.entries(backtest.by_competition).map(([id,v]) =>
@@ -158,7 +170,19 @@ async function main() {
     ...summary,
     "",
     "",
-    "## Model comparison on identical evaluated matches",
+    "## Independent 2025/26 season holdout",
+    `Initial training input matches (seasons before 2025/26): ${holdoutTrainingMatches}`,
+    `2025/26 holdout input matches: ${holdoutTestMatches}`,
+    `Evaluated holdout matches: ${holdoutBacktest.evaluated.sample_size}; skipped: ${holdoutBacktest.skipped_count}`,
+    `Holdout 1X2 hit rate: ${holdoutBacktest.evaluated.hit_rate==null?"—":(holdoutBacktest.evaluated.hit_rate*100).toFixed(1)+" %"}; Brier: ${holdoutBacktest.evaluated.brier_score==null?"—":holdoutBacktest.evaluated.brier_score.toFixed(4)}; Log loss: ${holdoutBacktest.evaluated.log_loss==null?"—":holdoutBacktest.evaluated.log_loss.toFixed(4)}`,
+    `Holdout picks ≥65%: ${holdoutBacktest.qualified_picks.sample_size}; hit rate: ${holdoutBacktest.qualified_picks.hit_rate==null?"—":(holdoutBacktest.qualified_picks.hit_rate*100).toFixed(1)+" %"}; coverage: ${holdoutBacktest.qualified_picks.coverage==null?"—":(holdoutBacktest.qualified_picks.coverage*100).toFixed(1)+" %"}`,
+    "The holdout evaluates only 2025/26 matches. For each fixture, the model may use only strictly earlier completed results; no same-day or future fixture is included. This is an expanding-window season holdout, not a frozen pre-season model.",
+    "",
+    "| Competition ID | Holdout matches | Hit rate | Brier score | Log loss | ≥65% picks | Pick hit rate |",
+    "|---|---:|---:|---:|---:|---:|---:|",
+    ...Object.entries(holdoutBacktest.by_competition).map(([id,v])=>`| ${id} | ${v.sample_size} | ${v.hit_rate==null?"—":(v.hit_rate*100).toFixed(1)+" %"} | ${v.brier_score==null?"—":v.brier_score.toFixed(4)} | ${v.log_loss==null?"—":v.log_loss.toFixed(4)} | ${v.qualified_picks.sample_size} | ${v.qualified_picks.hit_rate==null?"—":(v.qualified_picks.hit_rate*100).toFixed(1)+" %"} |`),
+    "",
+        "## Model comparison on identical evaluated matches",
     "| Forecast | Matches | Hit rate | Brier score | Log loss |",
     "|---|---:|---:|---:|---:|",
     `| Poisson team model | ${backtest.evaluated.sample_size} | ${backtest.evaluated.hit_rate==null?"—":(backtest.evaluated.hit_rate*100).toFixed(1)+" %"} | ${backtest.evaluated.brier_score==null?"—":backtest.evaluated.brier_score.toFixed(4)} | ${backtest.evaluated.log_loss==null?"—":backtest.evaluated.log_loss.toFixed(4)} |`,
