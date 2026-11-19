@@ -62,15 +62,29 @@ function doubleChanceMetrics(rows, threshold) {
       }
     }
   }
+  const calibration = subset => {
+    const bins=[];
+    for(let lower=threshold;lower<1;lower+=0.05) {
+      const upper=Math.min(1,lower+0.05);
+      const group=subset.filter(x=>x.probability>=lower && (upper===1 ? x.probability<=upper : x.probability<upper));
+      if(group.length) bins.push({
+        lower,upper,sample_size:group.length,
+        mean_confidence:group.reduce((sum,x)=>sum+x.probability,0)/group.length,
+        observed_accuracy:group.filter(x=>x.hit).length/group.length
+      });
+    }
+    return bins;
+  };
   const summary = (subset, singleMarket = false) => {
-    const n=subset.length, hits=subset.filter(x=>x.hit).length;
+    const n=subset.length;
     return {
       threshold, ...metrics(subset),
       coverage: rows.length ? n/(rows.length*(singleMarket ? 1 : 3)) : null,
       picks_per_match: rows.length ? n/rows.length : null,
+      calibration:calibration(subset),
       market_breakdown:Object.fromEntries(markets.map(m=>{
         const group=subset.filter(x=>x.market===m);
-        return [m,{...metrics(group),pick_count:group.length,coverage:rows.length ? group.length/rows.length : null}];
+        return [m,{...metrics(group),pick_count:group.length,coverage:rows.length ? group.length/rows.length : null,calibration:calibration(group)}];
       }))
     };
   };
