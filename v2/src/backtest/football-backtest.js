@@ -40,6 +40,46 @@ function metrics(rows) {
   };
 }
 
+
+function doubleChanceMetrics(rows, threshold) {
+  const markets = ["1X", "X2", "12"];
+  const picks = [];
+  for (const row of rows) {
+    const [home, draw, away] = row.probabilities;
+    const candidates = [
+      { market:"1X", probability:home+draw, hit:row.actual_outcome!==2 },
+      { market:"X2", probability:draw+away, hit:row.actual_outcome!==0 },
+      { market:"12", probability:home+away, hit:row.actual_outcome!==1 }
+    ];
+    for (const pick of candidates) {
+      if (pick.probability >= threshold) {
+        const p=Math.min(1-1e-15,Math.max(1e-15,pick.probability));
+        picks.push({
+          market:pick.market, probability:pick.probability, hit:pick.hit,
+          brier:(pick.probability-(pick.hit?1:0))**2,
+          log_loss:-(pick.hit?Math.log(p):Math.log(1-p))
+        });
+      }
+    }
+  }
+  const summary = subset => {
+    const n=subset.length, hits=subset.filter(x=>x.hit).length;
+    return {
+      threshold, ...metrics(subset),
+      coverage: rows.length ? n/(rows.length*3) : null,
+      picks_per_match: rows.length ? n/rows.length : null,
+      market_breakdown:Object.fromEntries(markets.map(m=>{
+        const group=subset.filter(x=>x.market===m);
+        return [m,{...metrics(group),pick_count:group.length}];
+      }))
+    };
+  };
+  return {
+    all_markets:summary(picks),
+    by_market:Object.fromEntries(markets.map(m=>[m,summary(picks.filter(x=>x.market===m))]))
+  };
+}
+
 function runFootballWalkForward(matches, options = {}) {
   if (!Array.isArray(matches)) throw new TypeError("matches must be an array.");
   const minHistoryMatches = options.minHistoryMatches ?? 20;
@@ -105,6 +145,7 @@ function runFootballWalkForward(matches, options = {}) {
           competition,
           dateUtc:match.dateUtc,
           hit:predicted === actual,
+          actual_outcome:actual,
           max_probability:Math.max(...values),
           actual_probability:values[actual],
           probabilities:values,
@@ -132,6 +173,7 @@ function runFootballWalkForward(matches, options = {}) {
     byCompetition[competition] = {
       ...metrics(subset),
       reference:metrics(subset.map(row=>({hit:row.reference_hit,brier:row.reference_brier,log_loss:row.reference_log_loss}))),
+      double_chance_picks:doubleChanceMetrics(subset,pickThreshold),
       qualified_picks: {
         threshold:pickThreshold,
         ...metrics(qualifiedSubset),
@@ -158,6 +200,7 @@ function runFootballWalkForward(matches, options = {}) {
       coverage:rows.length ? qualified.length / rows.length : null
     },
     qualified_calibration:calibrationBins(rows,pickThreshold),
+    double_chance_picks:doubleChanceMetrics(rows,pickThreshold),
     reference_qualified_picks:{threshold:pickThreshold,...metrics(referenceQualified.map(row=>({hit:row.reference_hit,brier:row.reference_brier,log_loss:row.reference_log_loss}))),coverage:rows.length ? referenceQualified.length/rows.length : null},
     by_competition:byCompetition,
     skipped_count:skipped.length,
