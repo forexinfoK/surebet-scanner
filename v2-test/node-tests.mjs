@@ -68,6 +68,25 @@ test("Walk-forward-Backtest liefert nur frühere Historie und Kennzahlen",()=>{
   assert.ok(r.rows.every(row=>Math.abs(row.reference_probabilities.reduce((sum,value)=>sum+value,0)-1)<1e-12));
 });
 
+
+test("Doppelte-Chance wird separat und je Markt im Walk-forward ausgewertet",()=>{
+  const rows=footballHistory(120);
+  const result=runFootballWalkForward(rows,{minHistoryMatches:20,minTeamVenueMatches:1,pickThreshold:0.65});
+  const dc=result.double_chance_picks;
+  assert.ok(dc.all_markets.all_markets.sample_size>=0);
+  assert.equal(dc.all_markets.all_markets.threshold,0.65);
+  assert.equal(dc.all_markets.all_markets.market_breakdown["1X"].pick_count,
+    dc.by_market["1X"].all_markets.sample_size);
+  for(const market of ["1X","X2","12"]) {
+    const summary=dc.by_market[market].all_markets;
+    assert.ok(summary.sample_size<=result.evaluated.sample_size);
+    assert.ok(summary.hit_rate===null || (summary.hit_rate>=0 && summary.hit_rate<=1));
+    assert.ok(summary.brier_score===null || summary.brier_score>=0);
+    assert.ok(summary.log_loss===null || summary.log_loss>=0);
+  }
+  assert.ok(result.rows.every(row=>Number.isInteger(row.actual_outcome)));
+});
+
 test("Tennis-Elo trennt ATP und WTA",()=>{
   const rows=[];
   for(let i=0;i<80;i++) rows.push({
