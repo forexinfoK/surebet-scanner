@@ -62,6 +62,9 @@ test("Walk-forward-Backtest liefert nur frühere Historie und Kennzahlen",()=>{
   assert.ok(r.reference.brier_score>=0);
   assert.ok(r.reference.log_loss>=0);
   assert.ok(r.reference_qualified_picks.sample_size<=r.evaluated.sample_size);
+  assert.ok(r.qualified_picks.hit_rate_ci95[0]<=r.qualified_picks.hit_rate);
+  assert.ok(r.qualified_picks.hit_rate_ci95[1]>=r.qualified_picks.hit_rate);
+  assert.ok(Array.isArray(r.qualified_calibration));
   assert.ok(r.rows.every(row=>Math.abs(row.reference_probabilities.reduce((sum,value)=>sum+value,0)-1)<1e-12));
 });
 
