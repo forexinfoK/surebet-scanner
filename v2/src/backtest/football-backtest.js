@@ -99,6 +99,11 @@ function runFootballWalkForward(matches, options = {}) {
   const minHistoryMatches = options.minHistoryMatches ?? 20;
   const minTeamVenueMatches = options.minTeamVenueMatches ?? 3;
   const pickThreshold = options.pickThreshold ?? 0.65;
+  const evaluationStartUtc = options.evaluationStartUtc ?? null;
+  const evaluationStartMs = evaluationStartUtc == null ? null : Date.parse(evaluationStartUtc);
+  if (evaluationStartUtc != null && !Number.isFinite(evaluationStartMs)) {
+    throw new TypeError("evaluationStartUtc must be a valid timezone-aware date string.");
+  }
   if (!Number.isFinite(pickThreshold) || pickThreshold <= 0 || pickThreshold > 1) {
     throw new RangeError("pickThreshold must be in (0,1].");
   }
@@ -129,6 +134,9 @@ function runFootballWalkForward(matches, options = {}) {
     group.sort((a,b) => Date.parse(a.dateUtc) - Date.parse(b.dateUtc));
     for (const match of group) {
       const kickoff = Date.parse(match.dateUtc);
+      // Optional holdout boundary: evaluate only the test window, while the
+      // history remains all strictly earlier completed matches in this league.
+      if (evaluationStartMs != null && kickoff < evaluationStartMs) continue;
       // Strictly earlier kickoff prevents same-time and same-day fixtures
       // from leaking into one another when source times are unavailable.
       const history = group.filter(item => Date.parse(item.dateUtc) < kickoff);
@@ -202,6 +210,7 @@ function runFootballWalkForward(matches, options = {}) {
 
   return {
     method:"chronological competition-isolated walk-forward",
+    evaluation_start_utc:evaluationStartUtc,
     model:"football-poisson-baseline",
     odds_used:false,
     input_matches:matches.length,
