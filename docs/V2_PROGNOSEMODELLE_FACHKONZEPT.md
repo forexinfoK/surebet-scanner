@@ -288,3 +288,33 @@ Kalibrierungsübersicht dieser 467 Auswahlen:
 **Interpretation und Grenzen:** Das Poisson-Teammodell schlägt in diesem Test das einfache Liga-Referenzmodell bei Trefferquote, Brier Score und Log Loss. Das ist ein messbarer Out-of-sample-Vorteil gegenüber genau dieser einfachen Referenz, aber noch kein Nachweis für Wettprofitabilität. Es wurden keine Quoten, Einsätze, Value-Signale oder Renditen ausgewertet. Die höchsten Konfidenzklassen haben sehr kleine Stichproben; die Schwankungen dort sind entsprechend groß. Die Daten umfassen weiterhin nur zwei Spielzeiten und die dokumentierte OpenFootball-Abdeckung. Eine längere Historie, Teamnamen-Aliasprüfung und unabhängige spätere Testperiode bleiben erforderlich.
 
 Technisch ergänzt: Das Walk-forward-Modul berechnet nun zusätzlich den strikt zeitlich vorherigen Liga-Prior, 95%-Wilson-Intervalle für Trefferquoten und Konfidenzbänder für die qualifizierten Poisson-Auswahlen. Die Ergebnisse werden im CI-Artefakt protokolliert.
+## 14. Erweiterter Vier-Saisonen-Test (19.11.2026)
+
+Der CC0-OpenFootball-Backtest wurde auf die Saisonen 2022/23 bis 2025/26 erweitert. Unvollständige Saisondateien bleiben konsequent ausgeschlossen; die Mindestabdeckung wird je Wettbewerb geprüft.
+
+- Eingelesene Spiele nach Coverage-Filter: 8.458
+- Zeitlich ausgewertete Prognosen: 7.060
+- Übersprungene Spiele: 1.398
+- Auswahlen mit mindestens 65 % Modellwahrscheinlichkeit: 771
+- Trefferquote dieser Auswahlen: 76,9 %
+- 95%-Wilson-Intervall: 73,8–79,7 %
+- Abdeckung: 10,9 %
+- Poisson-Teammodell über alle 7.060 Prognosen: 51,0 % Trefferquote, Brier 0,5998, Log Loss 1,0037
+- Geglätteter Liga-1X2-Prior auf denselben Spielen: 43,6 %, Brier 0,6507, Log Loss 1,0754
+
+Die Ergebnisse bleiben eine historische Modellprüfung ohne Quoten, Einsätze, EV oder ROI. Die höhere Trefferquote bei den gefilterten Auswahlen ist kein Profitabilitätsnachweis.
+
+### Tatsächliche Datenabdeckung
+
+Die Erweiterung hat für einige Wettbewerbe zusätzliche Saisonen erschlossen, aber nicht für alle:
+- Spanien: 2023/24 bis 2025/26 geladen; 2022/23 wegen 343 statt mindestens 350 Spielen ausgeschlossen.
+- Frankreich, Niederlande und Portugal: alle vier geprüften Saisonen geladen.
+- Belgien: 2023/24 und 2024/25 geladen; 2022/23 nicht verfügbar, 2025/26 mit nur 121 Spielen ausgeschlossen.
+- Schweiz: 2023/24 und 2024/25 geladen; 2022/23 und 2025/26 nicht verfügbar.
+- England, Deutschland, Italien und Österreich: nur 2024/25 und 2025/26 bestanden die konservativen Mindestabdeckungen.
+
+### Teamidentität über Saisonen
+
+Der Import speichert nun zusätzlich die ursprünglichen Teamnamen, die normalisierten Team-Schlüssel und die Saisonen je Wettbewerb im JSON-Bericht (`team_identity_audit`). Das ist eine Transparenzprüfung und noch keine automatische Alias-Zusammenführung. Unterschiedliche Schreibweisen, die nach Normalisierung weiterhin verschiedene Schlüssel ergeben, dürfen nicht automatisch als derselbe Verein behandelt werden. Eine manuell belegte Alias-Tabelle ist der nächste Schritt; bis dahin bleibt die Zuordnung konservativ.
+
+Das aktuelle Vier-Saisonen-Ergebnis ist damit deutlich breiter als der erste Test, aber aufgrund der weiterhin unvollständigen Datenabdeckung und der noch offenen Aliasprüfung nicht als finale Modellfreigabe zu verstehen.
