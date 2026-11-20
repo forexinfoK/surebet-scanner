@@ -1,8 +1,9 @@
 const API='https://tipsaudit.com/api/v1/predictions', SKOR='https://skorbot.live/api/v1/matches.json';
+const OPENLIGA='https://api.openligadb.de';
 const TENNIS_API='https://api.tipero.app/api/picks/';
 const ESPN_ATP='https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard';
 const ESPN_WTA='https://site.api.espn.com/apis/site/v2/sports/tennis/wta/scoreboard';
-const TZ='Europe/Vienna', MIN_MAIN=65, MIN_DC=60, MAX=7;
+const TZ='Europe/Vienna', MIN_MAIN=65, MIN_DC=60, MAX=7, RISK_MIN_PROB=45, RISK_MAX_PROB=65, RISK_MIN_ODDS=1.70, RISK_MIN_EV=0.03, RISK_MAX=3;
 const $=id=>document.getElementById(id);
 function nowVienna(){return new Date(new Date().toLocaleString('en-US',{timeZone:TZ}))}
 function dateKey(d){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(d)}
@@ -13,7 +14,7 @@ function teamKey(s){return String(s||'').toLowerCase().replace(/\b(sv|fc|sc|vfb|
 function key(x){return [dateKey(parseDate(x.kickoff)||new Date()),fmt(x.kickoff),teamKey(x.home),teamKey(x.away)].join('|')}
 function norm(payload,diag){
  const arr=Array.isArray(payload)?payload:(Array.isArray(payload?.predictions)?payload.predictions:[]);
- const main=[],dc=[];
+ const main=[],dc=[],risk=[];
  let upcoming=0,validProb=0,withValue=0,validSelection=0,belowThreshold=0,missingOdds=0,noPositiveEdge=0,fallbackAdded=0;
  const mainKeys=new Set();
  diag.push(`TipsAudit: ${arr.length} Rohdatensätze`);
@@ -36,12 +37,18 @@ function norm(payload,diag){
    else if(!Number.isFinite(best)||best<=1){missingOdds++;}
    else {
     const fairPrice=1/prob;
+    const ev=best*prob-1;
     if(best<=fairPrice){noPositiveEdge++;}
     else {
-     main.push({home:x.home,away:x.away,league:x.league||'Unbekannte Liga',kickoff:x.kickoff_utc,
+     const tip={home:x.home,away:x.away,league:x.league||'Unbekannte Liga',kickoff:x.kickoff_utc,
       pick:({'1':'Heimsieg',X:'Unentschieden','2':'Auswärtssieg'})[sel],prob:prob*100,
-      source:'TipsAudit · aktuelles Value-Signal',odds:best});
-     mainKeys.add([x.kickoff_utc,teamKey(x.home),teamKey(x.away)].join('|'));
+      source:'TipsAudit · aktuelles Value-Signal',odds:best,ev};
+     if(prob>=RISK_MIN_PROB/100 && prob<RISK_MAX_PROB/100 && best>=RISK_MIN_ODDS && ev>=RISK_MIN_EV){
+      risk.push({...tip,source:'Risiko-Tipp · positives Value-Signal',modelInfo:`Erwartungswert (EV): +${(ev*100).toFixed(1)} %`});
+     } else {
+      main.push(tip);
+      mainKeys.add([x.kickoff_utc,teamKey(x.home),teamKey(x.away)].join('|'));
+     }
      valueAdded=true;
     }
    }
@@ -67,8 +74,69 @@ function norm(payload,diag){
   }
  }
  diag.push(`TipsAudit 1X2-Prüfung: heute & offen=${upcoming}; gültige Wahrscheinlichkeiten=${validProb}; Value-Blöcke=${withValue}; gültige Auswahlen=${validSelection}; unter ${MIN_MAIN} %=${belowThreshold}; Quote fehlt=${missingOdds}; kein positiver EV=${noPositiveEdge}; Wahrscheinlichkeitsauswahlen=${fallbackAdded}`);
+ const riskUnique=dedupe(risk).filter(x=>isUpcoming(x.kickoff)).sort((a,b)=>(b.ev||0)-(a.ev||0)||b.prob-a.prob).slice(0,RISK_MAX);
+ diag.push(`Risiko-Tipps: ${riskUnique.length}/${RISK_MAX}; Wahrsch. ${RISK_MIN_PROB}–<${RISK_MAX_PROB} %; Quote ≥${RISK_MIN_ODDS.toFixed(2)}; EV ≥${(RISK_MIN_EV*100).toFixed(0)} %`);
  diag.push(`TipsAudit: ${main.length} 1X2-Kandidaten (Value + Wahrscheinlichkeitsauswahl), ${dc.length} X1/X2-Kandidaten`);
- return {main,dc};
+ return {main,dc,risk:riskUnique};
+}
+// Kostenloses Zusatzmodell für Tor-Märkte. OpenLigaDB liefert Spielpläne und Resultate,
+// aber keine Quoten. Daher werden nur Modellwahrscheinlichkeiten/fair odds angezeigt;
+// ein bookmaker-seitiger EV kann ohne echte Marktquote nicht behauptet werden.
+function poisson(lam,k){let v=Math.exp(-lam);for(let i=1;i<=k;i++)v*=lam/i;return v}
+function goalMarkets(home,away,league,kickoff,lambdaHome,lambdaAway){
+ const max=10,ph=Array.from({length:max+1},(_,i)=>poisson(lambdaHome,i)),pa=Array.from({length:max+1},(_,i)=>poisson(lambdaAway,i));
+ let btts=0,over25=0,over35=0,homeScores=0,awayScores=0;
+ for(let h=0;h<=max;h++)for(let a=0;a<=max;a++){let q=ph[h]*pa[a];if(h>0&&a>0)btts+=q;if(h+a>=3)over25+=q;if(h+a>=4)over35+=q;if(h>0)homeScores+=q;if(a>0)awayScores+=q;}
+ const markets=[['Beide Teams treffen – Ja',btts],['Beide Teams treffen – Nein',1-btts],['Über 2,5 Tore',over25],['Unter 2,5 Tore',1-over25],['Über 3,5 Tore',over35],['Unter 3,5 Tore',1-over35],['Heimteam erzielt ein Tor – Ja',homeScores],['Auswärtsteam erzielt ein Tor – Ja',awayScores]];
+ return markets.filter(([,p])=>p>=RISK_MIN_PROB/100&&p<RISK_MAX_PROB/100).map(([pick,p])=>({home,away,league,kickoff,pick,prob:p*100,fairOdds:1/p,source:'OpenLigaDB · Poisson-Tormodell',modelInfo:'Statistische Schätzung aus bisherigen Ligaergebnissen. Keine Live-Quote; EV nicht prüfbar.'}));
+}
+function fullTimeScore(m){
+ const rs=Array.isArray(m.matchResults)?m.matchResults:[];
+ const r=rs.find(x=>Number(x.resultTypeID)===2)||rs.find(x=>/end|full/i.test(String(x.resultName||'')))||rs.filter(x=>Number.isFinite(Number(x.pointsTeam1))&&Number.isFinite(Number(x.pointsTeam2))).slice(-1)[0];
+ if(!r)return null;const h=Number(r.pointsTeam1),a=Number(r.pointsTeam2);return Number.isFinite(h)&&Number.isFinite(a)?[h,a]:null;
+}
+function teamStats(matches){
+ const stats=new Map();let homeGoals=0,awayGoals=0,finished=0;
+ const get=n=>{if(!stats.has(n))stats.set(n,{gf:0,ga:0,g:0});return stats.get(n)};
+ for(const m of matches){const score=fullTimeScore(m);if(!score)continue;const h=m.team1?.teamName,a=m.team2?.teamName;if(!h||!a)continue;const hs=get(h),as=get(a);hs.gf+=score[0];hs.ga+=score[1];hs.g++;as.gf+=score[1];as.ga+=score[0];as.g++;homeGoals+=score[0];awayGoals+=score[1];finished++;}
+ return {stats,homeAvg:finished?homeGoals/finished:1.35,awayAvg:finished?awayGoals/finished:1.15,finished};
+}
+async function openLigaRisk(diag){
+ const season=new Date().getFullYear();
+ const res=await fetch(`${OPENLIGA}/getavailableleagues/${season}`,{headers:{Accept:'application/json'}});
+ if(!res.ok)throw Error(`OpenLigaDB Ligen HTTP ${res.status}`);
+ const leagues=await res.json();
+ const wanted=/(bundesliga|2\. bundesliga|3\. liga|premier league|la liga|serie a|ligue 1|eredivisie|primeira liga|österreich|austrian bundesliga)/i;
+ const selected=(Array.isArray(leagues)?leagues:[]).filter(l=>wanted.test(String(l.leagueName||''))).slice(0,10);
+ diag.push(`OpenLigaDB: ${Array.isArray(leagues)?leagues.length:0} Ligen für Saison ${season}; ausgewählt=${selected.length}`);
+ const out=[];
+ for(const league of selected){
+  try{
+   const shortcut=league.leagueShortcut,ls=league.leagueSeason||season;
+   const rr=await fetch(`${OPENLIGA}/getmatchdata/${encodeURIComponent(shortcut)}/${encodeURIComponent(ls)}`,{headers:{Accept:'application/json'}});
+   if(!rr.ok)throw Error(`HTTP ${rr.status}`);
+   const matches=await rr.json();if(!Array.isArray(matches))continue;
+   const model=teamStats(matches);if(model.finished<8)continue;
+   const byName=new Map([...model.stats.entries()].map(([n,v])=>[teamKey(n),v]));
+   for(const m of matches){
+    const kickoff=m.matchDateTime;if(!isUpcoming(kickoff)||m.matchIsFinished)continue;
+    const hn=m.team1?.teamName,an=m.team2?.teamName;if(!hn||!an)continue;
+    const hs=byName.get(teamKey(hn)),as=byName.get(teamKey(an));if(!hs||!as||hs.g<4||as.g<4)continue;
+    // Leicht geglättete Teamraten, damit kleine Stichproben nicht überreagieren.
+    const leagueAvg=(model.homeAvg+model.awayAvg)/2;
+    const hAttack=(hs.gf/hs.g+leagueAvg)/(2*leagueAvg),hDef=(hs.ga/hs.g+leagueAvg)/(2*leagueAvg);
+    const aAttack=(as.gf/as.g+leagueAvg)/(2*leagueAvg),aDef=(as.ga/as.g+leagueAvg)/(2*leagueAvg);
+    const lh=Math.max(.25,Math.min(3.5,model.homeAvg*hAttack*aDef));
+    const la=Math.max(.20,Math.min(3.2,model.awayAvg*aAttack*hDef));
+    out.push(...goalMarkets(hn,an,m.leagueName||league.leagueName,kickoff,lh,la));
+   }
+  }catch(e){diag.push(`OpenLigaDB ${league.leagueName||league.leagueShortcut}: ${e.message}`)}
+ }
+ const sorted=out.sort((a,b)=>Math.abs(a.prob-55)-Math.abs(b.prob-55));
+ // Pro Spiel nur den stärksten Markt übernehmen; insgesamt maximal zwei.
+ const chosen=[];for(const x of sorted){if(chosen.some(y=>key(y)===key(x)))continue;chosen.push(x);if(chosen.length>=RISK_MAX)break;}
+ diag.push(`OpenLigaDB Tormärkte: ${out.length} Kandidaten; ausgewählt=${chosen.length}; nur Ligen mit ausreichender Historie`);
+ return chosen;
 }
 async function skor(diag){let r=await fetch(SKOR,{headers:{Accept:'application/json'}});if(!r.ok)throw Error('Skorbot HTTP '+r.status);let p=await r.json(),a=p.matches||p||[],out=[];diag.push(`Skorbot: ${a.length} Rohspiele`);for(let m of a){if(!['scheduled','pending','not_started'].includes(String(m.status||'').toLowerCase()))continue;let k=m.kickoff||m.kickoff_utc||m.start_time;if(!isUpcoming(k))continue;let q=m.probabilities||m.prediction||{},p1=Number(q.home),px=Number(q.draw),p2=Number(q.away),sum=p1+px+p2;if(!(p1>=0&&px>=0&&p2>=0&&sum>0))continue;for(let [s,label,pb] of [['1X','Heim oder Unentschieden',(p1+px)/sum],['X2','Unentschieden oder Auswärts',(px+p2)/sum]])if(pb>=MIN_DC/100)out.push({home:m.home||m.home_team,away:m.away||m.away_team,league:m.competition||m.league||'Unbekannte Liga',kickoff:k,pick:s+' · '+label,prob:pb*100,source:'Skorbot'})}diag.push(`Skorbot: ${out.length} X1/X2-Kandidaten`);return out}
 function dedupe(arr){let out=[];for(let x of arr){let k=key(x);if(!out.some(y=>key(y)===k))out.push(x)}return out.sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)||b.prob-a.prob)}
@@ -378,22 +446,24 @@ function renderFixtures(arr){
   el.innerHTML=arr.map(x=>`<article class="tip"><div class="tiptop"><span class="league">${esc(x.league)}</span><span>${fmt(x.kickoff)} Uhr</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="meta">Spielplan-Eintrag · keine eigene Gewinnwahrscheinlichkeit</div><span class="source">${esc(x.source)}</span></article>`).join('');
 }
 
-function render(id,arr,empty){let el=$(id);el.className='cards'+(arr.length?'':' empty');if(!arr.length){el.textContent=empty;return}el.innerHTML=arr.map(x=>`<article class="tip"><div class="tiptop"><span class="league">${esc(x.league)}</span><span>${x.kickoff?fmt(x.kickoff)+' Uhr':'Beginn nicht angegeben'}</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="pickrow"><span class="pick">${esc(x.pick)}</span><span class="prob">${x.prob.toFixed(1)} %</span></div>${x.odds?`<div class="meta">Erfasste Quote: ${x.odds.toFixed(2)}</div>`:''}${x.modelInfo?`<div class="meta">${esc(x.modelInfo)}</div>`:''}<span class="source">${esc(x.source)}</span></article>`).join('')}
+function render(id,arr,empty){let el=$(id);el.className='cards'+(arr.length?'':' empty');if(!arr.length){el.textContent=empty;return}el.innerHTML=arr.map(x=>`<article class="tip"><div class="tiptop"><span class="league">${esc(x.league)}</span><span>${x.kickoff?fmt(x.kickoff)+' Uhr':'Beginn nicht angegeben'}</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="pickrow"><span class="pick">${esc(x.pick)}</span><span class="prob">${x.prob.toFixed(1)} %</span></div>${x.odds?`<div class="meta">Erfasste Quote: ${x.odds.toFixed(2)}</div>`:''}${x.fairOdds?`<div class="meta">Faire Modellquote (keine Buchmacherquote): ${x.fairOdds.toFixed(2)}</div>`:''}${x.modelInfo?`<div class="meta">${esc(x.modelInfo)}</div>`:''}<span class="source">${esc(x.source)}</span></article>`).join('')}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function eligible(arr){return dedupe(arr).filter(x=>isUpcoming(x.kickoff)).slice(0,MAX)}
 async function search(){
  let b=$('searchBtn');b.disabled=true;b.textContent='Suche läuft …';$('status').className='status';$('status').textContent='Datenquellen werden abgefragt …';
- let diag=[`Abruf: ${new Date().toLocaleString('de-AT',{timeZone:TZ})}`],main=[],dc=[],tennis=[];
+ let diag=[`Abruf: ${new Date().toLocaleString('de-AT',{timeZone:TZ})}`],main=[],dc=[],risk=[],tennis=[];
  try{
   let r=await fetch(API,{headers:{Accept:'application/json'}});
   if(!r.ok)throw Error('TipsAudit HTTP '+r.status);
-  let p=await r.json(),n=norm(p,diag);main=n.main;dc=n.dc;
+  let p=await r.json(),n=norm(p,diag);main=n.main;dc=n.dc;risk=n.risk;
+  try{const extraRisk=await openLigaRisk(diag);risk=dedupe([...risk,...extraRisk]).sort((a,b)=>(b.ev||0)-(a.ev||0)||Math.abs(a.prob-55)-Math.abs(b.prob-55)).slice(0,RISK_MAX)}catch(e){diag.push('OpenLigaDB Risiko-Modell nicht verfügbar: '+e.message)}
   try{dc=dedupe([...await skor(diag),...dc])}catch(e){diag.push('Skorbot Fehler: '+e.message)}
   let fm=eligible(main),fd=eligible(dc);
   render('mainList',fm,'Keine passenden, noch nicht gestarteten Fußballtipps.');
   render('dcList',fd,'Keine passenden, noch nicht gestarteten X1/X2-Tipps.');
-  $('mainCount').textContent=fm.length;$('dcCount').textContent=fd.length;
-  diag.push(`Aktuelle Tipps: 1X2 ${fm.length}/${MAX}; X1/X2 ${fd.length}/${MAX}`);
+  render('riskList',risk,'Heute gibt es keine Risiko-Tipps, die alle Qualitätsfilter erfüllen. Es werden keine Tipps erzwungen.');
+  $('mainCount').textContent=fm.length;$('dcCount').textContent=fd.length;$('riskCount').textContent=risk.length;
+  diag.push(`Aktuelle Tipps: 1X2 ${fm.length}/${MAX}; X1/X2 ${fd.length}/${MAX}; Risiko ${risk.length}/${RISK_MAX}`);
   let fixtures=[];
   try{fixtures=await fetchTennisFixtures(diag);renderFixtures(fixtures)}catch(e){renderFixtures([]);diag.push('ESPN Spielplan Fehler: '+e.message)}
   try{
@@ -405,12 +475,12 @@ async function search(){
     render('tennisList',tennis,'Keine belastbaren Tennisprognosen mit mindestens 60 % Modellwahrscheinlichkeit. Es werden keine Tipps künstlich erzeugt.');
     $('tennisCount').textContent=tennis.length;
     diag.push(`Tennis-Tipps gesamt: ${tennis.length}/5 (eigenes Modell=${own.length}, TIPERO öffentlich=${publicTips.length})`);
-    $('status').textContent=`Suchlauf abgeschlossen: ${fm.length} Fußballtipps, ${fd.length} X1/X2-Tipps, ${tennis.length} Tennistipps und ${fixtures.length} Spielplan-Einträge.`;
+    $('status').textContent=`Suchlauf abgeschlossen: ${fm.length} Fußballtipps, ${fd.length} X1/X2-Tipps, ${risk.length} Risiko-Tipps, ${tennis.length} Tennistipps und ${fixtures.length} Spielplan-Einträge.`;
   }catch(e){
     render('tennisList',[],'Eigenes Tennis-Modell derzeit nicht verfügbar. Bitte Diagnose prüfen.');
     $('tennisCount').textContent='0';
     diag.push('Tennis-Modell Fehler: '+e.message);
-    $('status').textContent=`Suchlauf abgeschlossen: ${fm.length} Fußballtipps, ${fd.length} X1/X2-Tipps, 0 eigene Tennisprognosen und ${fixtures.length} Spielplan-Einträge.`;
+    $('status').textContent=`Suchlauf abgeschlossen: ${fm.length} Fußballtipps, ${fd.length} X1/X2-Tipps, ${risk.length} Risiko-Tipps, 0 eigene Tennisprognosen und ${fixtures.length} Spielplan-Einträge.`;
   }
  }catch(e){
   $('status').className='status error';$('status').textContent='Fußball-Abruf nicht möglich: '+e.message+'. Tennis wird bei einem erfolgreichen Fußballabruf separat geladen.';

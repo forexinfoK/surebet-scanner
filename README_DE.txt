@@ -108,11 +108,30 @@ VERSION 1.3.0 – 1X2-SCHWELLE AUF 65 %
 - Die Diagnose weist für 1X2 nun ausdrücklich die 65-%-Schwelle aus.
 
 
-VERSION 1.3.3 – RISIKO-TIPPS AUF MAXIMAL 3
-- Eigener Bereich „Risiko-Tipps · Fußball“ mit höchstens drei Kandidaten pro Suchlauf.
-- Zusätzliche Fußballmärkte: Beide Teams treffen (Ja/Nein), Über/Unter 2,5 und 3,5 Tore sowie Heim-/Auswärtsteam erzielt ein Tor.
-- Kostenloses OpenLigaDB-Modell auf Basis verfügbarer Saisonergebnisse und eines Poisson-Tormodells; keine Registrierung und kein API-Schlüssel.
-- Modellwahrscheinlichkeit 45 bis unter 65 %; faire Modellquote wird als 1/Wahrscheinlichkeit ausgewiesen.
-- OpenLigaDB stellt keine Live-Buchmacherquote bereit. Für diese Tormärkte wird daher kein positiver EV behauptet oder bestätigt.
-- Risiko-Auswahl dedupliziert Märkte pro Spiel und zeigt maximal drei verschiedene Begegnungen.
-- Bestehende Fußball-1X2-, X1/X2- und Tennisbereiche bleiben erhalten.
+VERSION 1.3.1 – RISIKO-TIPPS FUßBALL
+- Neuer eigener Bereich „Risiko“ für Fußball-1X2-Tipps.
+- Maximal 2 Risiko-Tipps pro österreichischem Kalendertag/Suchlauf.
+- Modellwahrscheinlichkeit: mindestens 45 % und unter 65 %.
+- Erfasste Soft-Quote: mindestens 1.70.
+- Positiver erwarteter Wert (EV) von mindestens 3 % erforderlich (EV = Modellwahrscheinlichkeit × Quote − 1).
+- Es werden ausschließlich Tipps mit einem aktuellen TipsAudit-Value-Signal berücksichtigt; reine Wahrscheinlichkeitsauswahlen ohne bestätigte Quote kommen nicht in den Risikobereich.
+- Auswahl der maximal zwei Tipps nach höchstem EV; keine künstliche Auffüllung.
+- Normale Fußball-1X2-, X1/X2- und Tennisfilter bleiben unverändert.
+- Modellwahrscheinlichkeiten und EV sind Schätzwerte und keine Gewinnzusage.
+
+
+VERSION 1.3.2 – KOSTENLOSE FUSSBALL-TORMÄRKTE IM RISIKOBEREICH
+- Der Risiko-Bereich kann zusätzlich zu vorhandenen 1X2-Value-Tipps nun BTTS (Beide Teams treffen), Über/Unter 2,5 Tore, Über/Unter 3,5 Tore sowie Team erzielt ein Tor prüfen.
+- Neue Datenquelle: OpenLigaDB (https://api.openligadb.de), kostenlos und ohne API-Schlüssel. Es werden nur ausgewählte Ligen mit ausreichender Saisonhistorie verwendet.
+- Die Torwahrscheinlichkeiten werden mit einem einfachen Poisson-Modell aus bisherigen Ligaergebnissen geschätzt. Mindestens 8 abgeschlossene Ligaspiele insgesamt und mindestens 4 Spiele je beteiligtem Team sind erforderlich.
+- Es werden maximal 2 Risiko-Tipps ausgegeben; keine künstliche Auffüllung.
+- WICHTIG: OpenLigaDB liefert Ergebnisse/Spielpläne, keine Buchmacherquoten. Die angezeigte faire Modellquote ist keine tatsächlich verfügbare Wettquote. Für diese Modell-Tormärkte kann daher kein positiver EV bestätigt werden. Vor einer Wette muss die aktuelle Quote selbst geprüft werden.
+- Die bisherigen Fußball- und Tennisbereiche bleiben in ihrer Logik unverändert.
+- OpenLigaDB-Daten stehen unter ODbL 1.0; Abrufe bitte sparsam verwenden.
+
+
+VERSION 1.3.3 – RISIKO-LIMIT AUF 3 ERHÖHT
+- Maximale Anzahl der täglichen Risiko-Tipps von 2 auf 3 erhöht.
+- Die bestehenden Märkte, Wahrscheinlichkeitsfilter, Modellberechnung und Datenquellen bleiben unverändert.
+- Es werden weiterhin nur Tipps ausgegeben, die die bestehenden Filter erfüllen; weniger als 3 Tipps sind möglich.
+- Normale Fußball-1X2-, X1/X2- und Tennisbereiche bleiben unverändert.
