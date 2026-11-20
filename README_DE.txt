@@ -106,3 +106,13 @@ VERSION 1.3.0 – 1X2-SCHWELLE AUF 65 %
 - Maximal 7 Tipps je Suchlauf bleiben unverändert.
 - Fußball X1/X2 bleibt bei mindestens 60 %; Tennis und alle übrigen Datenquellen, Filter und Funktionen bleiben unverändert.
 - Die Diagnose weist für 1X2 nun ausdrücklich die 65-%-Schwelle aus.
+
+
+VERSION 1.3.3 – RISIKO-TIPPS AUF MAXIMAL 3
+- Eigener Bereich „Risiko-Tipps · Fußball“ mit höchstens drei Kandidaten pro Suchlauf.
+- Zusätzliche Fußballmärkte: Beide Teams treffen (Ja/Nein), Über/Unter 2,5 und 3,5 Tore sowie Heim-/Auswärtsteam erzielt ein Tor.
+- Kostenloses OpenLigaDB-Modell auf Basis verfügbarer Saisonergebnisse und eines Poisson-Tormodells; keine Registrierung und kein API-Schlüssel.
+- Modellwahrscheinlichkeit 45 bis unter 65 %; faire Modellquote wird als 1/Wahrscheinlichkeit ausgewiesen.
+- OpenLigaDB stellt keine Live-Buchmacherquote bereit. Für diese Tormärkte wird daher kein positiver EV behauptet oder bestätigt.
+- Risiko-Auswahl dedupliziert Märkte pro Spiel und zeigt maximal drei verschiedene Begegnungen.
+- Bestehende Fußball-1X2-, X1/X2- und Tennisbereiche bleiben erhalten.
