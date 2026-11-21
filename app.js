@@ -3,7 +3,7 @@ const OPENLIGA='https://api.openligadb.de';
 const TENNIS_API='https://api.tipero.app/api/picks/';
 const ESPN_ATP='https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard';
 const ESPN_WTA='https://site.api.espn.com/apis/site/v2/sports/tennis/wta/scoreboard';
-const TZ='Europe/Vienna', MIN_MAIN=70, MIN_DC=75, MAX=5, RISK_MIN_PROB=45, RISK_MAX_PROB=65, RISK_MIN_ODDS=1.70, RISK_MIN_EV=0.03, RISK_MAX=2;
+const TZ='Europe/Vienna', MIN_MAIN=70, MIN_DC=70, MAX=5, RISK_MIN_PROB=45, RISK_MAX_PROB=65, RISK_MIN_ODDS=1.70, RISK_MIN_EV=0.03, RISK_MAX=2;
 const $=id=>document.getElementById(id);
 function nowVienna(){return new Date(new Date().toLocaleString('en-US',{timeZone:TZ}))}
 function dateKey(d){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(d)}
