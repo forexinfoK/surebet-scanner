@@ -1,4 +1,4 @@
-SUREBET SCANNER MOBILE v1.3.3
+SUREBET SCANNER MOBILE v1.3.4
 
 Dies ist eine installierbare Android-Web-App (PWA), noch keine native APK.
 
@@ -139,3 +139,9 @@ VERSION 1.3.3 – STRENGERER FUSSBALLFILTER
 - Ungültige TipsAudit-Wahrscheinlichkeitsverteilungen (Summe außerhalb 95–105 %) werden verworfen.
 - Risiko-Bereich, Tennis-Bereich und deren Filter wurden nicht geändert.
 - Hinweis: Strengere Filter können dazu führen, dass an manchen Tagen deutlich weniger oder gar keine Fußballtipps angezeigt werden. Das ist beabsichtigt; es werden keine Tipps aufgefüllt.
+
+
+Version 1.3.4 – Korrektur der sichtbaren Tippbegrenzung
+- Anzeige für Fußball 1X2 und X1/X2 auf maximal 5 Tipps pro Suchlauf korrigiert.
+- Interne Begrenzung bleibt MAX=5.
+- Service-Worker-Cache auf v1.3.4 erhöht, damit Browser die aktualisierten Dateien neu laden.
