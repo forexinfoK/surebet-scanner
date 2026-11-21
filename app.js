@@ -3,7 +3,7 @@ const OPENLIGA='https://api.openligadb.de';
 const TENNIS_API='https://api.tipero.app/api/picks/';
 const ESPN_ATP='https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard';
 const ESPN_WTA='https://site.api.espn.com/apis/site/v2/sports/tennis/wta/scoreboard';
-const TZ='Europe/Vienna', MIN_MAIN=65, MIN_DC=60, MAX=7, RISK_MIN_PROB=45, RISK_MAX_PROB=65, RISK_MIN_ODDS=1.70, RISK_MIN_EV=0.03, RISK_MAX=3;
+const TZ='Europe/Vienna', MIN_MAIN=70, MIN_DC=75, MAX=5, RISK_MIN_PROB=45, RISK_MAX_PROB=65, RISK_MIN_ODDS=1.70, RISK_MIN_EV=0.03, RISK_MAX=2;
 const $=id=>document.getElementById(id);
 function nowVienna(){return new Date(new Date().toLocaleString('en-US',{timeZone:TZ}))}
 function dateKey(d){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(d)}
@@ -15,7 +15,7 @@ function key(x){return [dateKey(parseDate(x.kickoff)||new Date()),fmt(x.kickoff)
 function norm(payload,diag){
  const arr=Array.isArray(payload)?payload:(Array.isArray(payload?.predictions)?payload.predictions:[]);
  const main=[],dc=[],risk=[];
- let upcoming=0,validProb=0,withValue=0,validSelection=0,belowThreshold=0,missingOdds=0,noPositiveEdge=0,fallbackAdded=0;
+ let upcoming=0,validProb=0,withValue=0,validSelection=0,belowThreshold=0,missingOdds=0,noPositiveEdge=0;
  const mainKeys=new Set();
  diag.push(`TipsAudit: ${arr.length} Rohdatensätze`);
  for(const x of arr){
@@ -23,7 +23,8 @@ function norm(payload,diag){
   upcoming++;
   const p=x.fair_probabilities||{},v=x.value||{};
   const probs={1:Number(p.home),X:Number(p.draw),2:Number(p.away)};
-  const probsValid=['1','X','2'].every(k=>Number.isFinite(probs[k])&&probs[k]>=0&&probs[k]<=1);
+  const probSum=probs['1']+probs.X+probs['2'];
+  const probsValid=['1','X','2'].every(k=>Number.isFinite(probs[k])&&probs[k]>=0&&probs[k]<=1)&&probSum>=0.95&&probSum<=1.05;
   if(probsValid) validProb++;
   const rawSel=String(v.selection??'').trim().toLowerCase();
   const sel=({home:'1',draw:'X',away:'2',x:'X','1':'1','2':'2'})[rawSel]||rawSel.toUpperCase();
@@ -53,30 +54,16 @@ function norm(payload,diag){
     }
    }
   }
-  // Fallback: TipsAudit publishes fair probabilities for every priced match, but only
-  // publishes a value block when a soft bookmaker currently beats the fair price.
-  // Show the strongest 1X2 probability as a statistical candidate if no value signal exists.
-  if(probsValid&&!valueAdded){
-   const bestSelection=Object.entries(probs).sort((a,b)=>b[1]-a[1])[0];
-   const [fallbackSel,fallbackProb]=bestSelection;
-   const matchKey=[x.kickoff_utc,teamKey(x.home),teamKey(x.away)].join('|');
-   if(fallbackProb>=MIN_MAIN/100&&!mainKeys.has(matchKey)){
-    main.push({home:x.home,away:x.away,league:x.league||'Unbekannte Liga',kickoff:x.kickoff_utc,
-     pick:({'1':'Heimsieg',X:'Unentschieden','2':'Auswärtssieg'})[fallbackSel],prob:fallbackProb*100,
-     source:'TipsAudit · Wahrscheinlichkeitsauswahl',
-     modelInfo:'Kein aktuelles Value-Signal mit bestätigter Soft-Quote. Quote und Spielbarkeit vor dem Einsatz selbst prüfen.'});
-    fallbackAdded++;
-   }
-  }
+  // Keine Ersatz-/Wahrscheinlichkeitsauswahl: 1X2 wird nur bei bestätigtem positivem Value-Signal angezeigt.
   if(probsValid){
    for(const [s,label,prob] of [['1X','Heim oder Unentschieden',probs[1]+probs.X],['X2','Unentschieden oder Auswärts',probs.X+probs[2]]])
     if(prob>=MIN_DC/100) dc.push({home:x.home,away:x.away,league:x.league||'Unbekannte Liga',kickoff:x.kickoff_utc,pick:s+' · '+label,prob:prob*100,source:'TipsAudit abgeleitet'});
   }
  }
- diag.push(`TipsAudit 1X2-Prüfung: heute & offen=${upcoming}; gültige Wahrscheinlichkeiten=${validProb}; Value-Blöcke=${withValue}; gültige Auswahlen=${validSelection}; unter ${MIN_MAIN} %=${belowThreshold}; Quote fehlt=${missingOdds}; kein positiver EV=${noPositiveEdge}; Wahrscheinlichkeitsauswahlen=${fallbackAdded}`);
+ diag.push(`TipsAudit 1X2-Prüfung: heute & offen=${upcoming}; gültige Wahrscheinlichkeiten=${validProb}; Value-Blöcke=${withValue}; gültige Auswahlen=${validSelection}; unter ${MIN_MAIN} %=${belowThreshold}; Quote fehlt=${missingOdds}; kein positiver EV=${noPositiveEdge}`);
  const riskUnique=dedupe(risk).filter(x=>isUpcoming(x.kickoff)).sort((a,b)=>(b.ev||0)-(a.ev||0)||b.prob-a.prob).slice(0,RISK_MAX);
  diag.push(`Risiko-Tipps: ${riskUnique.length}/${RISK_MAX}; Wahrsch. ${RISK_MIN_PROB}–<${RISK_MAX_PROB} %; Quote ≥${RISK_MIN_ODDS.toFixed(2)}; EV ≥${(RISK_MIN_EV*100).toFixed(0)} %`);
- diag.push(`TipsAudit: ${main.length} 1X2-Kandidaten (Value + Wahrscheinlichkeitsauswahl), ${dc.length} X1/X2-Kandidaten`);
+ diag.push(`TipsAudit: ${main.length} echte 1X2-Value-Kandidaten, ${dc.length} X1/X2-Wahrscheinlichkeitskandidaten`);
  return {main,dc,risk:riskUnique};
 }
 // Kostenloses Zusatzmodell für Tor-Märkte. OpenLigaDB liefert Spielpläne und Resultate,
@@ -139,7 +126,7 @@ async function openLigaRisk(diag){
  return chosen;
 }
 async function skor(diag){let r=await fetch(SKOR,{headers:{Accept:'application/json'}});if(!r.ok)throw Error('Skorbot HTTP '+r.status);let p=await r.json(),a=p.matches||p||[],out=[];diag.push(`Skorbot: ${a.length} Rohspiele`);for(let m of a){if(!['scheduled','pending','not_started'].includes(String(m.status||'').toLowerCase()))continue;let k=m.kickoff||m.kickoff_utc||m.start_time;if(!isUpcoming(k))continue;let q=m.probabilities||m.prediction||{},p1=Number(q.home),px=Number(q.draw),p2=Number(q.away),sum=p1+px+p2;if(!(p1>=0&&px>=0&&p2>=0&&sum>0))continue;for(let [s,label,pb] of [['1X','Heim oder Unentschieden',(p1+px)/sum],['X2','Unentschieden oder Auswärts',(px+p2)/sum]])if(pb>=MIN_DC/100)out.push({home:m.home||m.home_team,away:m.away||m.away_team,league:m.competition||m.league||'Unbekannte Liga',kickoff:k,pick:s+' · '+label,prob:pb*100,source:'Skorbot'})}diag.push(`Skorbot: ${out.length} X1/X2-Kandidaten`);return out}
-function dedupe(arr){let out=[];for(let x of arr){let k=key(x);if(!out.some(y=>key(y)===k))out.push(x)}return out.sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)||b.prob-a.prob)}
+function dedupe(arr){const best=new Map();for(const x of arr){const k=key(x),old=best.get(k);if(!old||(Number(x.ev)||0)>(Number(old.ev)||0)||((Number(x.ev)||0)===(Number(old.ev)||0)&&x.prob>old.prob))best.set(k,x)}return [...best.values()].sort((a,b)=>(Number(b.ev)||0)-(Number(a.ev)||0)||b.prob-a.prob||new Date(a.kickoff)-new Date(b.kickoff))}
 function tennisPicks(payload,diag){
   const picks=Array.isArray(payload?.picks)?payload.picks:[];
   const today=dateKey(new Date());
@@ -448,7 +435,7 @@ function renderFixtures(arr){
 
 function render(id,arr,empty){let el=$(id);el.className='cards'+(arr.length?'':' empty');if(!arr.length){el.textContent=empty;return}el.innerHTML=arr.map(x=>`<article class="tip"><div class="tiptop"><span class="league">${esc(x.league)}</span><span>${x.kickoff?fmt(x.kickoff)+' Uhr':'Beginn nicht angegeben'}</span></div><div class="teams">${esc(x.home)} – ${esc(x.away)}</div><div class="pickrow"><span class="pick">${esc(x.pick)}</span><span class="prob">${x.prob.toFixed(1)} %</span></div>${x.odds?`<div class="meta">Erfasste Quote: ${x.odds.toFixed(2)}</div>`:''}${x.fairOdds?`<div class="meta">Faire Modellquote (keine Buchmacherquote): ${x.fairOdds.toFixed(2)}</div>`:''}${x.modelInfo?`<div class="meta">${esc(x.modelInfo)}</div>`:''}<span class="source">${esc(x.source)}</span></article>`).join('')}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function eligible(arr){return dedupe(arr).filter(x=>isUpcoming(x.kickoff)).slice(0,MAX)}
+function eligible(arr){return dedupe(arr).filter(x=>isUpcoming(x.kickoff)).sort((a,b)=>b.prob-a.prob||new Date(a.kickoff)-new Date(b.kickoff)).slice(0,MAX)}
 async function search(){
  let b=$('searchBtn');b.disabled=true;b.textContent='Suche läuft …';$('status').className='status';$('status').textContent='Datenquellen werden abgefragt …';
  let diag=[`Abruf: ${new Date().toLocaleString('de-AT',{timeZone:TZ})}`],main=[],dc=[],risk=[],tennis=[];
@@ -463,7 +450,7 @@ async function search(){
   render('dcList',fd,'Keine passenden, noch nicht gestarteten X1/X2-Tipps.');
   render('riskList',risk,'Heute gibt es keine Risiko-Tipps, die alle Qualitätsfilter erfüllen. Es werden keine Tipps erzwungen.');
   $('mainCount').textContent=fm.length;$('dcCount').textContent=fd.length;$('riskCount').textContent=risk.length;
-  diag.push(`Aktuelle Tipps: 1X2 ${fm.length}/${MAX}; X1/X2 ${fd.length}/${MAX}; Risiko ${risk.length}/${RISK_MAX}`);
+  diag.push(`Aktuelle Tipps: 1X2 ${fm.length}/${MAX} (nur Value, ≥${MIN_MAIN} %); X1/X2 ${fd.length}/${MAX} (≥${MIN_DC} %, Wahrscheinlichkeitsfilter); Risiko ${risk.length}/${RISK_MAX}`);
   let fixtures=[];
   try{fixtures=await fetchTennisFixtures(diag);renderFixtures(fixtures)}catch(e){renderFixtures([]);diag.push('ESPN Spielplan Fehler: '+e.message)}
   try{

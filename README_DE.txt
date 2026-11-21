@@ -1,4 +1,4 @@
-SUREBET SCANNER MOBILE v1.0.2
+SUREBET SCANNER MOBILE v1.3.3
 
 Dies ist eine installierbare Android-Web-App (PWA), noch keine native APK.
 
@@ -13,7 +13,8 @@ WICHTIG:
 - Browserzugriffe können durch CORS-Regeln der Anbieter blockiert sein. Die App zeigt dann den Fehler an. In diesem Fall braucht es einen kleinen HTTPS-Proxy/Backend, bevor die App zuverlässig nutzbar ist.
 - X1/X2-Werte werden aus 1X2-Modellwahrscheinlichkeiten abgeleitet, nicht unabhängig modelliert.
 - Verlauf der bereits gezeigten Spiele liegt lokal im Browser und wird pro österreichischem Kalendertag getrennt geführt.
-- Maximal 7 Tipps je Bereich und Suchlauf, Mindestwahrscheinlichkeit 60 %.
+- Fußball 1X2: maximal 5 Tipps, mindestens 70 % Modellwahrscheinlichkeit und ausschließlich mit aktuellem positivem Value-Signal sowie erfasster Quote.
+- Fußball X1/X2: maximal 5 Tipps, mindestens 75 % Modellwahrscheinlichkeit; daraus abgeleitete Wahrscheinlichkeit, keine eigenständige Prognose und keine bestätigte Value-/Quotenprüfung.
 - Keine automatische Aktualisierung.
 - Keine Gewinnzusage. Bitte verantwortungsvoll wetten.
 
@@ -130,8 +131,11 @@ VERSION 1.3.2 – KOSTENLOSE FUSSBALL-TORMÄRKTE IM RISIKOBEREICH
 - OpenLigaDB-Daten stehen unter ODbL 1.0; Abrufe bitte sparsam verwenden.
 
 
-VERSION 1.3.3 – RISIKO-LIMIT AUF 3 ERHÖHT
-- Maximale Anzahl der täglichen Risiko-Tipps von 2 auf 3 erhöht.
-- Die bestehenden Märkte, Wahrscheinlichkeitsfilter, Modellberechnung und Datenquellen bleiben unverändert.
-- Es werden weiterhin nur Tipps ausgegeben, die die bestehenden Filter erfüllen; weniger als 3 Tipps sind möglich.
-- Normale Fußball-1X2-, X1/X2- und Tennisbereiche bleiben unverändert.
+VERSION 1.3.3 – STRENGERER FUSSBALLFILTER
+- 1X2: Mindestwahrscheinlichkeit von 65 % auf 70 % erhöht; maximal 5 Tipps.
+- 1X2-Ersatz-/Wahrscheinlichkeitsauswahlen ohne bestätigtes aktuelles Value-Signal wurden entfernt. Ein 1X2-Tipp erscheint nur noch mit gültiger Auswahl, erfasster Quote oberhalb der fairen Modellquote und positivem EV.
+- X1/X2: Mindestwahrscheinlichkeit von 60 % auf 75 % erhöht; maximal 5 Tipps. Diese Auswahl bleibt eine Ableitung aus 1X2-Wahrscheinlichkeiten und ist keine unabhängige Prognose. Ohne passende Marktquote kann kein positiver EV bestätigt werden.
+- Doppelte Spiele werden anhand der besseren verfügbaren Prognose zusammengeführt; die Ausgabe wählt die höchsten Wahrscheinlichkeiten statt einfach die frühesten Spiele.
+- Ungültige TipsAudit-Wahrscheinlichkeitsverteilungen (Summe außerhalb 95–105 %) werden verworfen.
+- Risiko-Bereich, Tennis-Bereich und deren Filter wurden nicht geändert.
+- Hinweis: Strengere Filter können dazu führen, dass an manchen Tagen deutlich weniger oder gar keine Fußballtipps angezeigt werden. Das ist beabsichtigt; es werden keine Tipps aufgefüllt.
