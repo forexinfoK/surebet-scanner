@@ -1,4 +1,4 @@
-SUREBET SCANNER MOBILE v1.3.6
+SUREBET SCANNER MOBILE v1.3.7
 
 Dies ist eine installierbare Android-Web-App (PWA), noch keine native APK.
 
@@ -144,6 +144,9 @@ VERSION 1.3.3 – STRENGERER FUSSBALLFILTER
 Version 1.3.4 – Korrektur der sichtbaren Tippbegrenzung
 - Anzeige für Fußball 1X2 und X1/X2 auf maximal 5 Tipps pro Suchlauf korrigiert.
 - Interne Begrenzung bleibt MAX=5.
-- Service-Worker-Cache auf v1.3.6 erhöht, damit Browser die aktualisierten Dateien neu laden.
+- Service-Worker-Cache auf v1.3.7 erhöht, damit Browser die aktualisierten Dateien neu laden.
 \n\nVersion 1.3.5: Cache-Aktualisierung mit sofortiger Aktivierung des neuen Service Workers und Versionsparameter für app.js. Zusätzlich wird die maximale Zahl der sichtbaren Fußball- und X1/X2-Karten direkt beim Rendern auf 5 begrenzt.\n
 Version 1.3.6: X1/X2-Mindestwahrscheinlichkeit von 75 % auf 70 % angepasst. 1X2 bleibt bei 70 %. Maximale Anzeige bleibt bei 5 Tipps je Bereich.
+
+
+Version 1.3.7: X1/X2 werden nur noch angezeigt, wenn eine erfasste Quote vorhanden und mindestens 1,20 ist. Kandidaten ohne nachgewiesene Quote werden ausgefiltert. Mindestwahrscheinlichkeit 70 %, maximal 5 Tipps.\n

@@ -3,7 +3,7 @@ const OPENLIGA='https://api.openligadb.de';
 const TENNIS_API='https://api.tipero.app/api/picks/';
 const ESPN_ATP='https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard';
 const ESPN_WTA='https://site.api.espn.com/apis/site/v2/sports/tennis/wta/scoreboard';
-const TZ='Europe/Vienna', MIN_MAIN=70, MIN_DC=70, MAX=5, RISK_MIN_PROB=45, RISK_MAX_PROB=65, RISK_MIN_ODDS=1.70, RISK_MIN_EV=0.03, RISK_MAX=2;
+const TZ='Europe/Vienna', MIN_MAIN=70, MIN_DC=70, MIN_DC_ODDS=1.20, MAX=5, RISK_MIN_PROB=45, RISK_MAX_PROB=65, RISK_MIN_ODDS=1.70, RISK_MIN_EV=0.03, RISK_MAX=2;
 const $=id=>document.getElementById(id);
 function nowVienna(){return new Date(new Date().toLocaleString('en-US',{timeZone:TZ}))}
 function dateKey(d){return new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(d)}
@@ -445,12 +445,12 @@ async function search(){
   let p=await r.json(),n=norm(p,diag);main=n.main;dc=n.dc;risk=n.risk;
   try{const extraRisk=await openLigaRisk(diag);risk=dedupe([...risk,...extraRisk]).sort((a,b)=>(b.ev||0)-(a.ev||0)||Math.abs(a.prob-55)-Math.abs(b.prob-55)).slice(0,RISK_MAX)}catch(e){diag.push('OpenLigaDB Risiko-Modell nicht verfügbar: '+e.message)}
   try{dc=dedupe([...await skor(diag),...dc])}catch(e){diag.push('Skorbot Fehler: '+e.message)}
-  let fm=eligible(main),fd=eligible(dc);
+  let fm=eligible(main),fd=eligible(dc).filter(x=>Number.isFinite(Number(x.odds))&&Number(x.odds)>=MIN_DC_ODDS);
   render('mainList',fm,'Keine passenden, noch nicht gestarteten Fußballtipps.');
   render('dcList',fd,'Keine passenden, noch nicht gestarteten X1/X2-Tipps.');
   render('riskList',risk,'Heute gibt es keine Risiko-Tipps, die alle Qualitätsfilter erfüllen. Es werden keine Tipps erzwungen.');
   $('mainCount').textContent=fm.length;$('dcCount').textContent=fd.length;$('riskCount').textContent=risk.length;
-  diag.push(`Aktuelle Tipps: 1X2 ${fm.length}/${MAX} (nur Value, ≥${MIN_MAIN} %); X1/X2 ${fd.length}/${MAX} (≥${MIN_DC} %, Wahrscheinlichkeitsfilter); Risiko ${risk.length}/${RISK_MAX}`);
+  diag.push(`Aktuelle Tipps: 1X2 ${fm.length}/${MAX} (nur Value, ≥${MIN_MAIN} %); X1/X2 ${fd.length}/${MAX} (≥${MIN_DC} %, Quote ≥${MIN_DC_ODDS.toFixed(2)}); Risiko ${risk.length}/${RISK_MAX}`);
   let fixtures=[];
   try{fixtures=await fetchTennisFixtures(diag);renderFixtures(fixtures)}catch(e){renderFixtures([]);diag.push('ESPN Spielplan Fehler: '+e.message)}
   try{
