@@ -1,4 +1,4 @@
-const CACHE='surebet-mobile-v1-3-8';
+const CACHE='surebet-mobile-v1-3-9';
 self.addEventListener('install',e=>e.waitUntil((async()=>{const c=await caches.open(CACHE);await c.addAll(['./','./index.html','./style.css','./app.js','./manifest.webmanifest','./icon.svg']);await self.skipWaiting()})()));
 self.addEventListener('activate',e=>e.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith('surebet-mobile-')&&k!==CACHE).map(k=>caches.delete(k)));await self.clients.claim()})()));
 self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||new URL(e.request.url).origin!==location.origin)return;e.respondWith((async()=>{try{const fresh=await fetch(e.request);if(fresh.ok){const c=await caches.open(CACHE);c.put(e.request,fresh.clone())}return fresh}catch(err){const cached=await caches.match(e.request);if(cached)return cached;throw err}})())});
