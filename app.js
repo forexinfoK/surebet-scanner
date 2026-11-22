@@ -445,12 +445,13 @@ async function search(){
   let p=await r.json(),n=norm(p,diag);main=n.main;dc=n.dc;risk=n.risk;
   try{const extraRisk=await openLigaRisk(diag);risk=dedupe([...risk,...extraRisk]).sort((a,b)=>(b.ev||0)-(a.ev||0)||Math.abs(a.prob-55)-Math.abs(b.prob-55)).slice(0,RISK_MAX)}catch(e){diag.push('OpenLigaDB Risiko-Modell nicht verfügbar: '+e.message)}
   try{dc=dedupe([...await skor(diag),...dc])}catch(e){diag.push('Skorbot Fehler: '+e.message)}
-  let fm=eligible(main),fd=eligible(dc).filter(x=>Number(x.prob)>=MIN_DC&&Number(x.prob)<=MAX_DC);
+  let fm=eligible(main),dcRange=dedupe(dc).filter(x=>isUpcoming(x.kickoff)&&Number(x.prob)>=MIN_DC&&Number(x.prob)<=MAX_DC).sort((a,b)=>b.prob-a.prob||new Date(a.kickoff)-new Date(b.kickoff));let fd=dcRange.slice(0,MAX);
   render('mainList',fm,'Keine passenden, noch nicht gestarteten Fußballtipps.');
   render('dcList',fd,'Keine passenden, noch nicht gestarteten X1/X2-Tipps.');
   render('riskList',risk,'Heute gibt es keine Risiko-Tipps, die alle Qualitätsfilter erfüllen. Es werden keine Tipps erzwungen.');
   $('mainCount').textContent=fm.length;$('dcCount').textContent=fd.length;$('riskCount').textContent=risk.length;
-  diag.push(`Aktuelle Tipps: 1X2 ${fm.length}/${MAX} (nur Value, ≥${MIN_MAIN} %); X1/X2 ${fd.length}/${MAX} (${MIN_DC}–${MAX_DC} %, ohne Quotenfilter); Risiko ${risk.length}/${RISK_MAX}`);
+  diag.push(`X1/X2: ${dcRange.length} Spiele im Bereich ${MIN_DC}–${MAX_DC} %, davon ${fd.length} angezeigt`);
+   diag.push(`Aktuelle Tipps: 1X2 ${fm.length}/${MAX} (nur Value, ≥${MIN_MAIN} %); X1/X2 ${fd.length}/${MAX} (${MIN_DC}–${MAX_DC} %, ohne Quotenfilter); Risiko ${risk.length}/${RISK_MAX}`);
   let fixtures=[];
   try{fixtures=await fetchTennisFixtures(diag);renderFixtures(fixtures)}catch(e){renderFixtures([]);diag.push('ESPN Spielplan Fehler: '+e.message)}
   try{
